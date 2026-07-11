@@ -73,15 +73,34 @@ async function main() {
 
   ws.on("open", () => {
     console.log("🎉 SUCCESS! Connected and authenticated with Deriv's new Options trading API!");
-    ws.close();
+
+    // 📈 Subscribe to Volatility 100 (1s) Index ticks
+    console.log("📈 Subscribing to Volatility 100 (1s) Index ticks...");
+    ws.send(JSON.stringify({
+      ticks: "R_100",
+      subscribe: 1
+    }));
   });
 
   ws.on("message", (data: any) => {
-    console.log("📩 Message:", data.toString());
+    const response = JSON.parse(data.toString());
+
+    if (response.error) {
+      console.log(`❌ Stream Error: ${response.error.message}`);
+    } else if (response.tick) {
+      // Print the tick information beautifully
+      console.log(`🎯 [${response.tick.symbol}] Spot Price: ${response.tick.quote} (Time: ${new Date(response.tick.epoch * 1000).toLocaleTimeString()})`);
+    } else {
+      console.log("📩 Message:", response);
+    }
   });
 
   ws.on("error", (error) => {
     console.log(`❌ WebSocket Error: ${error.message}`);
+  });
+
+  ws.on("close", () => {
+    console.log("🔒 WebSocket connection closed.");
   });
 }
 
