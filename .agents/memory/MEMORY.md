@@ -1,0 +1,3 @@
+- [Deriv tick pip_size type](deriv-tick-pip-size.md) — pip_size in live tick messages can arrive as a number, not the string the docs imply; coerce before parsing.
+- [Account-type token selection pattern](account-type-token-selection.md) — dynamic demo/real secret selection at request time, explicit error (not fallback) when the secret is missing.
+- [Orval client import path](orval-client-import-path.md) — always import generated API hooks/schemas from the package root, never the internal `/src/generated/...` path.
