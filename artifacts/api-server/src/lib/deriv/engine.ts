@@ -14,7 +14,8 @@ import {
 const BASE_URL = "https://api.derivws.com";
 const WINDOW_SIZE = 20;
 const MIN_SAMPLES = 20;
-const CONFIDENCE_THRESHOLD = 0.85;
+const UNDER_9_THRESHOLD = 0.95; // 95% Confidence Threshold
+const UNDER_8_THRESHOLD = 0.98; // 98% Confidence Threshold
 const MAX_RECENT_TRADES = 20;
 const REQUEST_TIMEOUT_MS = 15000;
 const MAX_CONSECUTIVE_API_ERRORS = 3;
@@ -52,6 +53,7 @@ class DerivEngine {
 
   private ws: WebSocket | null = null;
   private accountId: string | null = null;
+  private balance: number | null = null;
   private digitWindow: number[] = [];
   private pipDecimals: number | null = null;
   private tradeInFlight = false;
@@ -81,6 +83,7 @@ class DerivEngine {
       state: this.state,
       config: { ...this.config },
       accountId: this.accountId,
+      balance: this.balance ? round2(this.balance) : null,
       currentStake: round2(this.currentStake),
       successiveLosses: this.successiveLosses,
       successiveWins: this.successiveWins,
@@ -207,6 +210,11 @@ class DerivEngine {
     logger.info({ reason }, "Trading engine auto-stopped");
   }
 
+  public manualResetSession(): EngineStatus {
+    this.resetSession();
+    return this.getStatus();
+  }
+
   private resetSession(): void {
     this.successiveLosses = 0;
     this.successiveWins = 0;
@@ -321,6 +329,8 @@ class DerivEngine {
       const ws = new WebSocket(wsUrl);
       const onOpen = () => {
         this.ws = ws;
+        // Request immediate authorization to obtain the clean balance output on UI
+        ws.send(JSON.stringify({ authorize: token, req_id: this.nextReqId() }));
         ws.send(JSON.stringify({ ticks: this.config.market, subscribe: 1 }));
         resolve();
       };
@@ -353,6 +363,11 @@ class DerivEngine {
       response = JSON.parse(raw);
     } catch {
       return;
+    }
+
+    // Capture explicit balance updates upon authorization callback or statements
+    if (response.msg_type === "authorize" && response.authorize) {
+      this.balance = Number(response.authorize.balance);
     }
 
     if (response.req_id && this.pendingRequests.has(response.req_id)) {
@@ -430,11 +445,18 @@ class DerivEngine {
     if (!confidences) return;
 
     let barrier: "9" | "8" | null = null;
-    if (confidences.under9 >= CONFIDENCE_THRESHOLD) {
-      barrier = "9";
-    } else if (confidences.under8 >= CONFIDENCE_THRESHOLD) {
+    const meetsUnder9 = confidences.under9 >= UNDER_9_THRESHOLD;
+    const meetsUnder8 = confidences.under8 >= UNDER_8_THRESHOLD;
+
+    // Prioritize Under 8 strategy executions over Under 9 if both criteria are met simultaneously
+    if (meetsUnder8 && meetsUnder9) {
       barrier = "8";
+    } else if (meetsUnder8) {
+      barrier = "8";
+    } else if (meetsUnder9) {
+      barrier = "9";
     }
+
     if (!barrier) return;
 
     this.tradeInFlight = true;
@@ -469,6 +491,7 @@ class DerivEngine {
       throw new Error("Deriv did not return a valid price proposal.");
     }
 
+    // Omitted 'symbol' entirely to fix the Deriv structural input validation error
     const buyRes = await this.sendAndWait({
       buy: proposal.id,
       price: proposal.ask_price ?? stake,
@@ -566,6 +589,12 @@ class DerivEngine {
       result,
       exitDigit,
     };
+    
+    // Track balance updates from the settled trade payload
+    if (contract.balance_after_settlement !== undefined) {
+      this.balance = Number(contract.balance_after_settlement);
+    }
+
     this.recordTrade(trade);
 
     this.tradeInFlight = false;
