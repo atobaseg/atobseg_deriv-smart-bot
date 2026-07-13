@@ -4,7 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatMoney } from "@/lib/utils"
 import { format } from "date-fns"
 
-export function TradeHistory({ trades }: { trades: TradeRecord[] }) {
+// Added '?' to make trades optional, providing extra safety
+export function TradeHistory({ trades = [] }: { trades?: TradeRecord[] }) {
+  // Safety check: Handles null, undefined, or empty arrays
   if (!trades || trades.length === 0) {
     return (
       <Card>
@@ -37,6 +39,7 @@ export function TradeHistory({ trades }: { trades: TradeRecord[] }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-border/50">
+              {/* trades is guaranteed to be an array here due to the guard clause above */}
               {trades.map((trade) => (
                 <tr key={trade.id} className="hover:bg-muted/10 transition-colors">
                   <td className="p-3 text-muted-foreground font-mono text-xs">

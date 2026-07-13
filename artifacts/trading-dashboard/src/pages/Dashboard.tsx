@@ -10,7 +10,6 @@ import { useState } from "react"
 export default function Dashboard() {
   const [isResetting, setIsResetting] = useState(false)
   
-  // Poll every 1.5 seconds to keep the dashboard live
   const { data: status, isLoading, error } = useGetEngineStatus({
     query: {
       refetchInterval: 1500,
@@ -18,7 +17,6 @@ export default function Dashboard() {
     }
   })
 
-  // Hook into the verified emergency stop endpoint
   const { mutateAsync: stopEngine } = useStopEngine()
 
   const handleResetSession = async () => {
@@ -60,10 +58,8 @@ export default function Dashboard() {
       <div className="max-w-3xl mx-auto">
         <div className="p-4 sm:p-6 space-y-6">
           
-          {/* Header Actions Area */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex-1">
-              {/* Account Balance and metrics automatically sync via status tracking */}
               <StatusHeader status={status} />
             </div>
             <div className="flex justify-end pt-2 sm:pt-0">
@@ -78,18 +74,16 @@ export default function Dashboard() {
             </div>
           </div>
           
-          {/* Current Strategy Signal View */}
           <LiveSignal status={status} />
 
-          {/* Configuration Form */}
+          {/* Added optional chaining and empty array fallback for safety */}
           <ConfigForm config={status.config} state={status.state} />
 
-          {/* Trade History */}
-          <TradeHistory trades={status.recentTrades} />
+          {/* Corrected: If recentTrades is null/undefined, pass an empty array to prevent .map() crashes */}
+          <TradeHistory trades={status.recentTrades ?? []} />
         </div>
       </div>
       
-      {/* Sticky Bottom Actions */}
       <BottomBar state={status.state} />
     </div>
   )
