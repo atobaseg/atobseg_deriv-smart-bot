@@ -20,20 +20,20 @@ export default function Dashboard() {
   const { mutateAsync: stopEngine } = useStopEngine()
 
   const handleResetSession = async () => {
-    if (!window.confirm("Are you sure you want to stop the engine? This returns it to idle, and the next start will begin a fresh session with reset stats.")) return
+    if (!window.confirm("Are you sure you want to stop the engine?")) return
     
     try {
       setIsResetting(true)
       await stopEngine()
     } catch (err) {
       console.error("Failed to stop engine:", err)
-      alert("Error stopping engine. Please verify the backend logs.")
     } finally {
       setIsResetting(false)
     }
   }
 
-  if (isLoading && !status) {
+  // Safety: If still loading, show loader
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center flex-col gap-4 text-muted-foreground">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -42,45 +42,46 @@ export default function Dashboard() {
     )
   }
 
+  // Safety: If error or missing status object
   if (error || !status) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6 text-center">
-        <div className="bg-destructive/10 text-destructive p-6 rounded-xl max-w-sm w-full border border-destructive/20 shadow-sm">
+        <div className="bg-destructive/10 text-destructive p-6 rounded-xl max-w-sm w-full border border-destructive/20">
           <h2 className="font-bold text-lg mb-2">Engine Unreachable</h2>
-          <p className="text-sm opacity-90">Could not connect to the trading engine. Please verify the backend is running.</p>
+          <p className="text-sm">Please verify the backend is running.</p>
         </div>
       </div>
     )
   }
 
+  // Final Guard: Ensure recentTrades exists before rendering
+  const safeTrades = Array.isArray(status?.recentTrades) ? status.recentTrades : [];
+
   return (
     <div className="min-h-[100dvh] pb-[88px] bg-muted/30">
       <div className="max-w-3xl mx-auto">
         <div className="p-4 sm:p-6 space-y-6">
-          
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex-1">
               <StatusHeader status={status} />
             </div>
-            <div className="flex justify-end pt-2 sm:pt-0">
+            <div className="flex justify-end pt-2">
               <button
                 onClick={handleResetSession}
                 disabled={isResetting || status.state === 'idle'}
-                className="inline-flex items-center gap-2 px-4 py-2 text-xs font-mono tracking-wider uppercase bg-background border border-input rounded-lg hover:bg-accent hover:text-accent-foreground disabled:opacity-40 disabled:cursor-not-allowed shadow-sm transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2 text-xs font-mono tracking-wider uppercase bg-background border border-input rounded-lg disabled:opacity-40"
               >
-                <Square className={`h-3 w-3 ${isResetting ? 'animate-pulse text-destructive' : ''}`} />
+                <Square className="h-3 w-3" />
                 {isResetting ? 'Stopping...' : 'Reset to Idle'}
               </button>
             </div>
           </div>
           
           <LiveSignal status={status} />
-
-          {/* Added optional chaining and empty array fallback for safety */}
           <ConfigForm config={status.config} state={status.state} />
-
-          {/* Corrected: If recentTrades is null/undefined, pass an empty array to prevent .map() crashes */}
-          <TradeHistory trades={status.recentTrades ?? []} />
+          
+          {/* Passed the pre-validated 'safeTrades' array */}
+          <TradeHistory trades={safeTrades} />
         </div>
       </div>
       
