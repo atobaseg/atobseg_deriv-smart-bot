@@ -19,9 +19,27 @@ export default function Dashboard() {
 
   const { mutateAsync: stopEngine } = useStopEngine()
 
+  // Guard: If still loading or status is missing, show loader
+  if (isLoading || !status) {
+    return (
+      <div className="min-h-screen flex items-center justify-center flex-col gap-4 text-muted-foreground">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="font-mono text-sm tracking-widest uppercase">
+          {error ? "Engine Unreachable - Retrying..." : "Connecting to Engine..."}
+        </p>
+      </div>
+    )
+  }
+
+  // DEEP SANITIZATION: Ensure every expected array is valid before components see them
+  const safeStatus = {
+    ...status,
+    recentTrades: Array.isArray(status?.recentTrades) ? status.recentTrades : [],
+    // Add other fields that might be lists here if needed
+  };
+
   const handleResetSession = async () => {
     if (!window.confirm("Are you sure you want to stop the engine?")) return
-    
     try {
       setIsResetting(true)
       await stopEngine()
@@ -32,43 +50,18 @@ export default function Dashboard() {
     }
   }
 
-  // Safety: If still loading, show loader
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center flex-col gap-4 text-muted-foreground">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="font-mono text-sm tracking-widest uppercase">Connecting to Engine...</p>
-      </div>
-    )
-  }
-
-  // Safety: If error or missing status object
-  if (error || !status) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-6 text-center">
-        <div className="bg-destructive/10 text-destructive p-6 rounded-xl max-w-sm w-full border border-destructive/20">
-          <h2 className="font-bold text-lg mb-2">Engine Unreachable</h2>
-          <p className="text-sm">Please verify the backend is running.</p>
-        </div>
-      </div>
-    )
-  }
-
-  // Final Guard: Ensure recentTrades exists before rendering
-  const safeTrades = Array.isArray(status?.recentTrades) ? status.recentTrades : [];
-
   return (
     <div className="min-h-[100dvh] pb-[88px] bg-muted/30">
       <div className="max-w-3xl mx-auto">
         <div className="p-4 sm:p-6 space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex-1">
-              <StatusHeader status={status} />
+              <StatusHeader status={safeStatus} />
             </div>
             <div className="flex justify-end pt-2">
               <button
                 onClick={handleResetSession}
-                disabled={isResetting || status.state === 'idle'}
+                disabled={isResetting || safeStatus.state === 'idle'}
                 className="inline-flex items-center gap-2 px-4 py-2 text-xs font-mono tracking-wider uppercase bg-background border border-input rounded-lg disabled:opacity-40"
               >
                 <Square className="h-3 w-3" />
@@ -77,15 +70,13 @@ export default function Dashboard() {
             </div>
           </div>
           
-          <LiveSignal status={status} />
-          <ConfigForm config={status.config} state={status.state} />
-          
-          {/* Passed the pre-validated 'safeTrades' array */}
-          <TradeHistory trades={safeTrades} />
+          <LiveSignal status={safeStatus} />
+          <ConfigForm config={safeStatus.config} state={safeStatus.state} />
+          <TradeHistory trades={safeStatus.recentTrades} />
         </div>
       </div>
       
-      <BottomBar state={status.state} />
+      <BottomBar state={safeStatus.state} />
     </div>
   )
 }
