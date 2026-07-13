@@ -5,17 +5,16 @@ import { Progress } from "@/components/ui/progress"
 import { formatPercent } from "@/lib/utils"
 
 export function LiveSignal({ status }: { status: EngineStatus }) {
-  const {
-    lastTick,
-    lastDigit,
-    windowFillCount,
-    windowSize,
-    under9Confidence,
-    under8Confidence,
-    state
-  } = status
+  // Use '??' to provide safe fallbacks for every property
+  const lastTick = status?.lastTick ?? null;
+  const lastDigit = status?.lastDigit ?? null;
+  const windowFillCount = status?.windowFillCount ?? 0;
+  const windowSize = status?.windowSize ?? 0;
+  const under9Confidence = status?.under9Confidence ?? 0;
+  const under8Confidence = status?.under8Confidence ?? 0;
+  const state = status?.state ?? 'idle';
 
-  const isRunning = state === 'running'
+  const isRunning = state === 'running';
 
   return (
     <Card className="overflow-hidden relative">
@@ -33,7 +32,7 @@ export function LiveSignal({ status }: { status: EngineStatus }) {
           <div>
             <div className="text-xs text-muted-foreground mb-1 uppercase tracking-wider">Last Price</div>
             <div className="text-2xl font-mono font-medium tabular-nums">
-              {lastTick ? lastTick.toFixed(4) : "—"}
+              {lastTick !== null ? lastTick.toFixed(4) : "—"}
             </div>
           </div>
           
@@ -52,9 +51,8 @@ export function LiveSignal({ status }: { status: EngineStatus }) {
               <span className="font-mono">{formatPercent(under9Confidence)}</span>
             </div>
             <Progress 
-              value={under9Confidence ? under9Confidence * 100 : 0} 
+              value={under9Confidence * 100} 
               className="h-1.5 bg-muted"
-              indicatorColor="bg-blue-500" 
             />
           </div>
           
@@ -64,15 +62,13 @@ export function LiveSignal({ status }: { status: EngineStatus }) {
               <span className="font-mono">{formatPercent(under8Confidence)}</span>
             </div>
             <Progress 
-              value={under8Confidence ? under8Confidence * 100 : 0} 
+              value={under8Confidence * 100} 
               className="h-1.5 bg-muted"
-              indicatorColor="bg-purple-500" 
             />
           </div>
         </div>
       </CardContent>
       
-      {/* Dimmed overlay when not running so it's clear no action is taking place */}
       {(!isRunning && state !== 'paused') && (
         <div className="absolute inset-0 bg-background/50 backdrop-blur-[1px] flex items-center justify-center z-10 pointer-events-none">
           <div className="bg-background/90 border shadow-sm px-3 py-1.5 rounded-full text-xs font-medium text-muted-foreground tracking-wide uppercase">

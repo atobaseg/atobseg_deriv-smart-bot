@@ -27,25 +27,39 @@ const configSchema = z.object({
 
 type ConfigFormValues = z.infer<typeof configSchema>
 
-export function ConfigForm({ config, state }: { config: EngineConfig, state: EngineStatusState }) {
+export function ConfigForm({ config, state }: { config?: EngineConfig, state?: EngineStatusState }) {
   const { toast } = useToast()
   const { data: markets = [], isLoading: loadingMarkets } = useListMarkets()
-  
   const updateConfig = useUpdateEngineConfig()
+
+  // --- SAFE GUARD LAYER ---
+  // Ensure we have defaults if API hasn't loaded yet
+  const safeConfig = config ?? {
+    market: "",
+    accountType: "demo",
+    baseStake: 0.35,
+    martingaleEnabled: false,
+    martingaleMultiplier: 1,
+    stopLoss: 0,
+    takeProfit: 0,
+    maxSuccessiveLosses: 1,
+    maxSuccessiveWins: 1
+  };
   
+  const safeState = state ?? 'idle';
+
   const form = useForm<ConfigFormValues>({
     resolver: zodResolver(configSchema),
-    defaultValues: {
-      ...config,
-    },
+    defaultValues: safeConfig,
   })
 
-  // Update form if external config completely changes (e.g. initial load)
   React.useEffect(() => {
-    form.reset(config)
+    if (config) {
+      form.reset(config)
+    }
   }, [config, form])
 
-  const isRunning = state === 'running'
+  const isRunning = safeState === 'running'
   const isMartingaleEnabled = form.watch("martingaleEnabled")
 
   const onSubmit = (data: ConfigFormValues) => {
