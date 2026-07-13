@@ -19,23 +19,34 @@ export default function Dashboard() {
 
   const { mutateAsync: stopEngine } = useStopEngine()
 
-  // Guard: If still loading or status is missing, show loader
-  if (isLoading || !status) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center flex-col gap-4 text-muted-foreground">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="font-mono text-sm tracking-widest uppercase">
-          {error ? "Engine Unreachable - Retrying..." : "Connecting to Engine..."}
-        </p>
+        <p className="font-mono text-sm tracking-widest uppercase">Connecting to Engine...</p>
       </div>
     )
   }
 
-  // DEEP SANITIZATION: Ensure every expected array is valid before components see them
+  if (error || !status) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 text-center">
+        <div className="bg-destructive/10 text-destructive p-6 rounded-xl max-w-sm w-full border border-destructive/20">
+          <h2 className="font-bold text-lg mb-2">Engine Unreachable</h2>
+        </div>
+      </div>
+    )
+  }
+
+  // DATA INTEGRITY LAYER: Force types for all child components
   const safeStatus = {
     ...status,
     recentTrades: Array.isArray(status?.recentTrades) ? status.recentTrades : [],
-    // Add other fields that might be lists here if needed
+    // We pass empty arrays for any other fields that might be used as lists in sub-components
+    // This prevents the "map is not a function" error globally
+    logs: Array.isArray(status?.logs) ? status.logs : [],
+    activeSignals: Array.isArray(status?.activeSignals) ? status.activeSignals : [],
+    config: status.config || {},
   };
 
   const handleResetSession = async () => {
@@ -62,7 +73,7 @@ export default function Dashboard() {
               <button
                 onClick={handleResetSession}
                 disabled={isResetting || safeStatus.state === 'idle'}
-                className="inline-flex items-center gap-2 px-4 py-2 text-xs font-mono tracking-wider uppercase bg-background border border-input rounded-lg disabled:opacity-40"
+                className="inline-flex items-center gap-2 px-4 py-2 text-xs font-mono tracking-wider uppercase bg-background border border-input rounded-lg"
               >
                 <Square className="h-3 w-3" />
                 {isResetting ? 'Stopping...' : 'Reset to Idle'}
