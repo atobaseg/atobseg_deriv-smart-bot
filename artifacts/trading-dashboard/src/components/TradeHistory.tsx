@@ -4,10 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatMoney } from "@/lib/utils"
 import { format } from "date-fns"
 
-// Added '?' to make trades optional, providing extra safety
 export function TradeHistory({ trades = [] }: { trades?: TradeRecord[] }) {
-  // Safety check: Handles null, undefined, or empty arrays
-  if (!trades || trades.length === 0) {
+  // Defensive check: ensure trades is an array
+  const safeTrades = Array.isArray(trades) ? trades : [];
+
+  if (safeTrades.length === 0) {
     return (
       <Card>
         <CardHeader>
@@ -39,24 +40,28 @@ export function TradeHistory({ trades = [] }: { trades?: TradeRecord[] }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-border/50">
-              {/* trades is guaranteed to be an array here due to the guard clause above */}
-              {trades.map((trade) => (
-                <tr key={trade.id} className="hover:bg-muted/10 transition-colors">
-                  <td className="p-3 text-muted-foreground font-mono text-xs">
-                    {format(new Date(trade.timestamp), "HH:mm:ss")}
-                  </td>
-                  <td className="p-3">
-                    <div className="font-medium">{trade.contractType}</div>
-                    <div className="text-xs text-muted-foreground font-mono">{trade.market}</div>
-                  </td>
-                  <td className="p-3 text-right font-mono">
-                    {formatMoney(trade.stake)}
-                  </td>
-                  <td className={`p-3 text-right font-mono font-medium ${trade.result === 'win' ? 'text-green-600' : 'text-red-600'}`}>
-                    {trade.result === 'win' ? '+' : ''}{formatMoney(trade.profit)}
-                  </td>
-                </tr>
-              ))}
+              {safeTrades.map((trade, index) => {
+                // Extra safety: skip rendering if trade object is missing critical data
+                if (!trade || !trade.timestamp) return null;
+                
+                return (
+                  <tr key={trade.id || index} className="hover:bg-muted/10 transition-colors">
+                    <td className="p-3 text-muted-foreground font-mono text-xs">
+                      {format(new Date(trade.timestamp), "HH:mm:ss")}
+                    </td>
+                    <td className="p-3">
+                      <div className="font-medium">{trade.contractType ?? 'N/A'}</div>
+                      <div className="text-xs text-muted-foreground font-mono">{trade.market ?? 'N/A'}</div>
+                    </td>
+                    <td className="p-3 text-right font-mono">
+                      {formatMoney(trade.stake ?? 0)}
+                    </td>
+                    <td className={`p-3 text-right font-mono font-medium ${trade.result === 'win' ? 'text-green-600' : 'text-red-600'}`}>
+                      {trade.result === 'win' ? '+' : ''}{formatMoney(trade.profit ?? 0)}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
