@@ -6,29 +6,25 @@ import { formatMoney } from "@/lib/utils"
 import { Card, CardContent } from "@/components/ui/card"
 
 export function StatusHeader({ status }: { status: EngineStatus }) {
-  const {
-    state,
-    accountId,
-    sessionPnl,
-    wins,
-    losses,
-    successiveWins,
-    successiveLosses,
-    currentStake,
-    stopReason,
-    errorMessage,
-  } = status
+  // Use '?? 0' or '?? ""' to provide safe fallbacks if the server sends null/undefined
+  const state = status?.state ?? "idle";
+  const accountId = status?.accountId ?? "";
+  const sessionPnl = status?.sessionPnl ?? 0;
+  const wins = status?.wins ?? 0;
+  const losses = status?.losses ?? 0;
+  const successiveWins = status?.successiveWins ?? 0;
+  const successiveLosses = status?.successiveLosses ?? 0;
+  const currentStake = status?.currentStake ?? 0;
+  const stopReason = status?.stopReason;
+  const errorMessage = status?.errorMessage;
+  const totalTrades = status?.totalTrades ?? 0;
 
   const getBadgeVariant = (s: string) => {
     switch (s) {
-      case "running":
-        return "success"
-      case "paused":
-        return "warning"
-      case "stopped":
-        return "destructive"
-      default:
-        return "outline"
+      case "running": return "success";
+      case "paused": return "warning";
+      case "stopped": return "destructive";
+      default: return "outline";
     }
   }
 
@@ -55,7 +51,7 @@ export function StatusHeader({ status }: { status: EngineStatus }) {
           <div className="flex justify-between items-start mb-4">
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <Badge variant={getBadgeVariant(state)} className="uppercase tracking-wider px-2 py-0.5 text-[10px]">
+                <Badge variant={getBadgeVariant(state as string)} className="uppercase tracking-wider px-2 py-0.5 text-[10px]">
                   {state}
                 </Badge>
                 {accountId && <span className="text-xs font-mono text-muted-foreground">{accountId}</span>}
@@ -93,7 +89,7 @@ export function StatusHeader({ status }: { status: EngineStatus }) {
 
             <div className="flex flex-col gap-1">
               <span className="text-xs text-muted-foreground uppercase tracking-wider">Total Trades</span>
-              <span className="font-mono font-medium">{status.totalTrades}</span>
+              <span className="font-mono font-medium">{totalTrades}</span>
             </div>
           </div>
         </CardContent>
