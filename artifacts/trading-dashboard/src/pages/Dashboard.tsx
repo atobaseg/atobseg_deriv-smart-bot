@@ -5,12 +5,12 @@ import { ConfigForm } from "@/components/ConfigForm"
 import { TradeHistory } from "@/components/TradeHistory"
 import { BottomBar } from "@/components/BottomBar"
 import { Loader2, Square } from "lucide-react"
-import { useState } from "react"
+import { useState, useMemo } from "react"
 
 export default function Dashboard() {
   const [isResetting, setIsResetting] = useState(false)
   
-  const { data: status, isLoading, error } = useGetEngineStatus({
+  const { data: rawStatus, isLoading, error } = useGetEngineStatus({
     query: {
       refetchInterval: 1500,
       queryKey: getGetEngineStatusQueryKey()
@@ -19,6 +19,20 @@ export default function Dashboard() {
 
   const { mutateAsync: stopEngine } = useStopEngine()
 
+  // CIRCUIT BREAKER: Memoize the status to ensure it is ALWAYS a valid object
+  const safeStatus = useMemo(() => {
+    if (!rawStatus) return null;
+    return {
+      ...rawStatus,
+      recentTrades: Array.isArray(rawStatus.recentTrades) ? rawStatus.recentTrades : [],
+      logs: Array.isArray(rawStatus.logs) ? rawStatus.logs : [],
+      activeSignals: Array.isArray(rawStatus.activeSignals) ? rawStatus.activeSignals : [],
+      config: rawStatus.config || {},
+      state: rawStatus.state || 'idle'
+    };
+  }, [rawStatus]);
+
+  // Loading/Error UI
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center flex-col gap-4 text-muted-foreground">
@@ -28,7 +42,7 @@ export default function Dashboard() {
     )
   }
 
-  if (error || !status) {
+  if (error || !safeStatus) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6 text-center">
         <div className="bg-destructive/10 text-destructive p-6 rounded-xl max-w-sm w-full border border-destructive/20">
@@ -37,17 +51,6 @@ export default function Dashboard() {
       </div>
     )
   }
-
-  // DATA INTEGRITY LAYER: Force types for all child components
-  const safeStatus = {
-    ...status,
-    recentTrades: Array.isArray(status?.recentTrades) ? status.recentTrades : [],
-    // We pass empty arrays for any other fields that might be used as lists in sub-components
-    // This prevents the "map is not a function" error globally
-    logs: Array.isArray(status?.logs) ? status.logs : [],
-    activeSignals: Array.isArray(status?.activeSignals) ? status.activeSignals : [],
-    config: status.config || {},
-  };
 
   const handleResetSession = async () => {
     if (!window.confirm("Are you sure you want to stop the engine?")) return
@@ -62,7 +65,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-[100dvh] pb-[88px] bg-muted/30">
+    <div className="min-h-screen pb-[88px] bg-muted/30">
       <div className="max-w-3xl mx-auto">
         <div className="p-4 sm:p-6 space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
