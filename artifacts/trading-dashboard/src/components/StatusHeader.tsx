@@ -5,19 +5,24 @@ import { Badge } from "@/components/ui/badge"
 import { formatMoney } from "@/lib/utils"
 import { Card, CardContent } from "@/components/ui/card"
 
-export function StatusHeader({ status }: { status: EngineStatus }) {
-  // Use '?? 0' or '?? ""' to provide safe fallbacks if the server sends null/undefined
-  const state = status?.state ?? "idle";
-  const accountId = status?.accountId ?? "";
-  const sessionPnl = status?.sessionPnl ?? 0;
-  const wins = status?.wins ?? 0;
-  const losses = status?.losses ?? 0;
-  const successiveWins = status?.successiveWins ?? 0;
-  const successiveLosses = status?.successiveLosses ?? 0;
-  const currentStake = status?.currentStake ?? 0;
-  const stopReason = status?.stopReason;
-  const errorMessage = status?.errorMessage;
-  const totalTrades = status?.totalTrades ?? 0;
+// Make status optional to prevent crash if parent hasn't passed data yet
+export function StatusHeader({ status }: { status?: EngineStatus }) {
+  // If no status exists, return a minimal loading state or nothing
+  if (!status) {
+    return <div className="p-4 text-sm text-muted-foreground">Connecting...</div>;
+  }
+
+  const state = status.state ?? "idle";
+  const accountId = status.accountId ?? "";
+  const sessionPnl = status.sessionPnl ?? 0;
+  const wins = status.wins ?? 0;
+  const losses = status.losses ?? 0;
+  const successiveWins = status.successiveWins ?? 0;
+  const successiveLosses = status.successiveLosses ?? 0;
+  const currentStake = status.currentStake ?? 0;
+  const stopReason = status.stopReason;
+  const errorMessage = status.errorMessage;
+  const totalTrades = status.totalTrades ?? 0;
 
   const getBadgeVariant = (s: string) => {
     switch (s) {
