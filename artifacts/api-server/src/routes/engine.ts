@@ -14,7 +14,13 @@ import { EngineUserError } from "../lib/deriv/types";
 
 const router: IRouter = Router();
 
+// Original route
 router.get("/engine/markets", (_req: Request, res: Response): void => {
+  res.json(ListMarketsResponse.parse(MARKETS));
+});
+
+// NEW ALIAS: This tells the app to also look here when asking for markets
+router.get("/markets", (_req: Request, res: Response): void => {
   res.json(ListMarketsResponse.parse(MARKETS));
 });
 
