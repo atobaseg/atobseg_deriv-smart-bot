@@ -11,17 +11,18 @@ app.use(express.json());
 // 1. API ROUTES
 app.use("/api", router);
 
-// 2. STATIC FILES & CATCH-ALL
+// 2. HEALTH CHECK
+app.get("/health", (_req, res) => {
+  res.status(200).send("OK");
+});
+
+// 3. STATIC FILES
 const staticPath = path.join(__dirname, "../../dist");
 app.use(express.static(staticPath));
 
-app.get("*", (_req: Request, res: Response) => {
+// 4. CATCH-ALL (Defined last to ensure it doesn't intercept API calls)
+app.use((_req: Request, res: Response) => {
   res.sendFile(path.join(staticPath, "index.html"));
-});
-
-// Health check endpoint
-app.get("/health", (_req, res) => {
-  res.status(200).send("OK");
 });
 
 export default app;
