@@ -32,8 +32,6 @@ export function ConfigForm({ config, state }: { config?: EngineConfig, state?: E
   const { data: markets = [], isLoading: loadingMarkets } = useListMarkets()
   const updateConfig = useUpdateEngineConfig()
 
-  // --- SAFE GUARD LAYER ---
-  // Ensure we have defaults if API hasn't loaded yet
   const safeConfig = config ?? {
     market: "",
     accountType: "demo",
@@ -111,9 +109,17 @@ export function ConfigForm({ config, state }: { config?: EngineConfig, state?: E
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {markets.map((m) => (
-                          <SelectItem key={m.symbol} value={m.symbol}>{m.label}</SelectItem>
-                        ))}
+                        {Array.isArray(markets) && markets.length > 0 ? (
+                          markets.map((m) => (
+                            <SelectItem key={m.symbol} value={m.symbol}>
+                              {m.label}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <div className="p-2 text-xs text-muted-foreground text-center">
+                            {loadingMarkets ? "Loading markets..." : "No markets available"}
+                          </div>
+                        )}
                       </SelectContent>
                     </Select>
                     <FormMessage />
