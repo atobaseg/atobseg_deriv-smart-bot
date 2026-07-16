@@ -32,4 +32,11 @@ app.get("*", (req, res, next) => {
   res.sendFile(path.join(staticPath, "index.html"));
 });
 
+// 5. START SERVER (Required for Render to detect port)
+const port = process.env.PORT || 10000;
+
+app.listen(Number(port), "0.0.0.0", () => {
+  console.log(`Server is running on port ${port}`);
+});
+
 export default app;
