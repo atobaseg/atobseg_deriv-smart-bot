@@ -8,7 +8,7 @@ const app: Express = express();
 app.use(cors());
 app.use(express.json());
 
-// 1. API ROUTES - Explicitly defined before everything else
+// 1. API ROUTES
 app.use("/api", router);
 
 // 2. HEALTH CHECK
@@ -17,23 +17,19 @@ app.get("/health", (_req, res) => {
 });
 
 // 3. STATIC FILES
-// Based on your folder structure artifacts/api-server/src, 
-// '../dist' should point to artifacts/api-server/dist
 const staticPath = path.resolve(__dirname, "../dist");
 app.use(express.static(staticPath));
 
-// 4. CATCH-ALL FOR FRONTEND
-// Using "/*" instead of "*" to avoid path-to-regexp errors
-app.get("/*", (req, res, next) => {
-  // If it's an API call that wasn't caught above, 
-  // don't try to send the HTML file; let it 404 naturally.
+// 4. CATCH-ALL FOR FRONTEND (Using Middleware instead of app.get)
+// This avoids the path-to-regexp parser entirely.
+app.use((req: Request, res: Response, next: NextFunction) => {
   if (req.path.startsWith('/api')) {
-    return next(); 
+    return next();
   }
   res.sendFile(path.join(staticPath, "index.html"));
 });
 
-// 5. START SERVER (Required for Render to detect port)
+// 5. START SERVER
 const port = process.env.PORT || 10000;
 
 app.listen(Number(port), "0.0.0.0", () => {
