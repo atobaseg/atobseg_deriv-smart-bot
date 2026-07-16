@@ -23,7 +23,8 @@ const staticPath = path.resolve(__dirname, "../dist");
 app.use(express.static(staticPath));
 
 // 4. CATCH-ALL FOR FRONTEND
-app.get("*", (req, res, next) => {
+// Using "/*" instead of "*" to avoid path-to-regexp errors
+app.get("/*", (req, res, next) => {
   // If it's an API call that wasn't caught above, 
   // don't try to send the HTML file; let it 404 naturally.
   if (req.path.startsWith('/api')) {
