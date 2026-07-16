@@ -8,14 +8,13 @@ const app: Express = express();
 app.use(cors());
 app.use(express.json());
 
-// DEBUGGING: Log all incoming requests to help identify path mismatches
+// DEBUGGING: Log all incoming requests
 app.use((req: Request, res: Response, next: NextFunction) => {
   console.log(`[DEBUG] Incoming Request: ${req.method} ${req.url}`);
   next();
 });
 
-// 1. API ROUTES MUST BE FIRST
-// Ensure your API router is mounted before the static file handler
+// 1. API ROUTES
 app.use("/api", router);
 
 // 2. HEALTH CHECK
@@ -24,10 +23,12 @@ app.get("/health", (_req: Request, res: Response) => {
 });
 
 // 3. STATIC FILES
-const staticPath = path.join(__dirname, "../../dist");
+// Using path.resolve to help diagnose the directory path
+const staticPath = path.resolve(__dirname, "../../dist");
+console.log("Looking for static files at:", staticPath); 
 app.use(express.static(staticPath));
 
-// 4. CATCH-ALL FOR FRONTEND (Must be absolute last)
+// 4. CATCH-ALL FOR FRONTEND
 app.use((_req: Request, res: Response) => {
   res.sendFile(path.join(staticPath, "index.html"));
 });
