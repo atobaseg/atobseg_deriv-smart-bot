@@ -14,14 +14,17 @@ import { EngineUserError } from "../lib/deriv/types";
 
 const router: IRouter = Router();
 
+// Convert the MARKETS object into an array once
+const markets = Object.values(MARKETS);
+
 // Original route
 router.get("/engine/markets", (_req: Request, res: Response): void => {
-  res.json(ListMarketsResponse.parse(MARKETS));
+  res.json(ListMarketsResponse.parse(markets));
 });
 
-// NEW ALIAS: This tells the app to also look here when asking for markets
+// Alias route
 router.get("/markets", (_req: Request, res: Response): void => {
-  res.json(ListMarketsResponse.parse(MARKETS));
+  res.json(ListMarketsResponse.parse(markets));
 });
 
 router.get("/engine/status", (_req: Request, res: Response): void => {
@@ -30,10 +33,12 @@ router.get("/engine/status", (_req: Request, res: Response): void => {
 
 router.patch("/engine/config", (req: Request, res: Response): void => {
   const parsed = UpdateEngineConfigBody.safeParse(req.body);
+
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+
   try {
     const status = derivEngine.updateConfig(parsed.data);
     res.json(UpdateEngineConfigResponse.parse(status));
