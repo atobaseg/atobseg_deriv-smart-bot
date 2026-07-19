@@ -34,7 +34,7 @@ async function main() {
     process.exit(1);
   }
 
-  const accountsBody = await accountsRes.json();
+  const accountsBody: any = await accountsRes.json();
   const accounts = accountsBody.data ?? accountsBody;
 
   if (!Array.isArray(accounts) || accounts.length === 0) {
@@ -59,7 +59,7 @@ async function main() {
     process.exit(1);
   }
 
-  const otpBody = await otpRes.json();
+  const otpBody: any = await otpRes.json();
   const wsUrl = otpBody.data?.url ?? otpBody.url;
 
   if (!wsUrl) {

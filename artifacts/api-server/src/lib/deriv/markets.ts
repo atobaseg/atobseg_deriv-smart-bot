@@ -1,26 +1,76 @@
-export interface MarketDef {
-  symbol: string;
-  label: string;
+export interface MarketDefinition {
+    symbol: string;
+    displayName: string;
 }
 
-// Deriv synthetic volatility index markets that support digit contracts
-// (DIGITOVER / DIGITUNDER). Kept as a static list -- these symbols are
-// stable Deriv identifiers, not user data.
-export const MARKETS: MarketDef[] = [
-  { symbol: "R_10", label: "Volatility 10 Index" },
-  { symbol: "R_25", label: "Volatility 25 Index" },
-  { symbol: "R_50", label: "Volatility 50 Index" },
-  { symbol: "R_75", label: "Volatility 75 Index" },
-  { symbol: "R_100", label: "Volatility 100 Index" },
-  { symbol: "1HZ10V", label: "Volatility 10 (1s) Index" },
-  { symbol: "1HZ25V", label: "Volatility 25 (1s) Index" },
-  { symbol: "1HZ50V", label: "Volatility 50 (1s) Index" },
-  { symbol: "1HZ75V", label: "Volatility 75 (1s) Index" },
-  { symbol: "1HZ100V", label: "Volatility 100 (1s) Index" },
-];
+export const MARKETS: Record<string, MarketDefinition> = {
 
-export const DEFAULT_MARKET = "R_100";
+    // Volatility Indices
 
-export function isKnownMarket(symbol: string): boolean {
-  return MARKETS.some((m) => m.symbol === symbol);
+    R_10: {
+        symbol: "R_10",
+        displayName: "Volatility 10 Index"
+    },
+
+    R_25: {
+        symbol: "R_25",
+        displayName: "Volatility 25 Index"
+    },
+
+    R_50: {
+        symbol: "R_50",
+        displayName: "Volatility 50 Index"
+    },
+
+    R_75: {
+        symbol: "R_75",
+        displayName: "Volatility 75 Index"
+    },
+
+    R_100: {
+        symbol: "R_100",
+        displayName: "Volatility 100 Index"
+    },
+
+    // Volatility (1s) Indices
+
+    "1HZ10V": {
+        symbol: "1HZ10V",
+        displayName: "Volatility 10 (1s) Index"
+    },
+
+    "1HZ25V": {
+        symbol: "1HZ25V",
+        displayName: "Volatility 25 (1s) Index"
+    },
+
+    "1HZ50V": {
+        symbol: "1HZ50V",
+        displayName: "Volatility 50 (1s) Index"
+    },
+
+    "1HZ75V": {
+        symbol: "1HZ75V",
+        displayName: "Volatility 75 (1s) Index"
+    },
+
+    "1HZ100V": {
+        symbol: "1HZ100V",
+        displayName: "Volatility 100 (1s) Index"
+    }
+
+};
+
+export function getMarket(
+    symbol: string
+): MarketDefinition {
+
+    return MARKETS[symbol] ?? {
+
+        symbol,
+
+        displayName: symbol
+
+    };
+
 }

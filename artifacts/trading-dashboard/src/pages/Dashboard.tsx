@@ -9,7 +9,7 @@ import { useState, useMemo } from "react"
 
 export default function Dashboard() {
   const [isResetting, setIsResetting] = useState(false)
-  
+
   const { data: rawStatus, isLoading, error } = useGetEngineStatus({
     query: {
       refetchInterval: 1500,
@@ -22,13 +22,14 @@ export default function Dashboard() {
   // CIRCUIT BREAKER: Memoize the status to ensure it is ALWAYS a valid object
   const safeStatus = useMemo(() => {
     if (!rawStatus) return null;
+
     return {
       ...rawStatus,
-      recentTrades: Array.isArray(rawStatus.recentTrades) ? rawStatus.recentTrades : [],
-      logs: Array.isArray(rawStatus.logs) ? rawStatus.logs : [],
-      activeSignals: Array.isArray(rawStatus.activeSignals) ? rawStatus.activeSignals : [],
-      config: rawStatus.config || {},
-      state: rawStatus.state || 'idle'
+      recentTrades: Array.isArray(rawStatus.recentTrades)
+        ? rawStatus.recentTrades
+        : [],
+      config: rawStatus.config,
+      state: rawStatus.state
     };
   }, [rawStatus]);
 
@@ -83,13 +84,13 @@ export default function Dashboard() {
               </button>
             </div>
           </div>
-          
+
           <LiveSignal status={safeStatus} />
           <ConfigForm config={safeStatus.config} state={safeStatus.state} />
           <TradeHistory trades={safeStatus.recentTrades} />
         </div>
       </div>
-      
+
       <BottomBar state={safeStatus.state} />
     </div>
   )
