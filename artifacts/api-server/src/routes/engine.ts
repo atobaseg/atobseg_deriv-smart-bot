@@ -8,23 +8,36 @@ import {
   PauseEngineResponse,
   StopEngineResponse,
 } from "@workspace/api-zod";
+
 import { derivEngine } from "../lib/deriv/engine";
 import { MARKETS } from "../lib/deriv/markets";
 import { EngineUserError } from "../lib/deriv/types";
 
 const router: IRouter = Router();
 
-// Convert the MARKETS object into an array once
-const markets = Object.values(MARKETS);
+/**
+ * Convert internal MARKET object into the array
+ * required by ListMarketsResponse.
+ */
+function getMarketsResponse() {
+  return Object.values(MARKETS).map((market) => ({
+    symbol: market.symbol,
+    label: market.displayName,
+  }));
+}
 
-// Original route
+/**
+ * GET /engine/markets
+ */
 router.get("/engine/markets", (_req: Request, res: Response): void => {
-  res.json(ListMarketsResponse.parse(markets));
+  res.json(ListMarketsResponse.parse(getMarketsResponse()));
 });
 
-// Alias route
+/**
+ * Alias used by frontend
+ */
 router.get("/markets", (_req: Request, res: Response): void => {
-  res.json(ListMarketsResponse.parse(markets));
+  res.json(ListMarketsResponse.parse(getMarketsResponse()));
 });
 
 router.get("/engine/status", (_req: Request, res: Response): void => {
@@ -47,6 +60,7 @@ router.patch("/engine/config", (req: Request, res: Response): void => {
       res.status(err.status).json({ error: err.message });
       return;
     }
+
     throw err;
   }
 });
@@ -61,6 +75,7 @@ router.post("/engine/start", async (req: Request, res: Response): Promise<void> 
       res.status(err.status).json({ error: err.message });
       return;
     }
+
     throw err;
   }
 });
