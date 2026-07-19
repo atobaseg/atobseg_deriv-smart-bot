@@ -23,7 +23,11 @@ function validateMarket(
     market: string
 ): void {
 
-    if (!(market in MARKETS)) {
+    const exists = MARKETS.some(
+        (item) => item.symbol === market
+    );
+
+    if (!exists) {
 
         throw new EngineUserError(
             `Unsupported market: ${market}`
