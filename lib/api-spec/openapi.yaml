@@ -1,24 +1,29 @@
 openapi: 3.1.0
+
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
   description: API specification
+
 servers:
-  - url: /api
-    description: Base API path
+- url: /api
+  description: Base API path
+
 tags:
-  - name: health
-    description: Health operations
-  - name: engine
-    description: Deriv trading engine control
+- name: health
+  description: Health operations
+
+- name: engine
+  description: Deriv trading engine
+
 paths:
+
   /healthz:
     get:
       operationId: healthCheck
-      tags: [health]
+      tags:
+      - health
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -26,300 +31,578 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
   /engine/markets:
     get:
       operationId: listMarkets
-      tags: [engine]
-      summary: List tradeable markets
-      description: Returns the list of volatility index markets available to trade
+      tags:
+      - engine
+      summary: List Markets
       responses:
         "200":
-          description: Markets
+          description: Available Markets
           content:
             application/json:
               schema:
                 type: array
                 items:
                   $ref: "#/components/schemas/Market"
+
   /engine/status:
     get:
       operationId: getEngineStatus
-      tags: [engine]
-      summary: Get current engine status
-      description: Returns the current state, configuration, live stats, and recent trade history of the trading engine
+      tags:
+      - engine
+      summary: Get Engine Status
       responses:
         "200":
-          description: Engine status
+          description: Current Engine Status
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/EngineStatus"
+
   /engine/config:
     patch:
       operationId: updateEngineConfig
-      tags: [engine]
-      summary: Update engine configuration
-      description: Updates one or more configuration fields. The engine starts fully idle by default and configuration can be changed at any time; changing market or accountType while running requires pausing or stopping first.
+      tags:
+      - engine
+      summary: Update Engine Configuration
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: "#/components/schemas/EngineConfigUpdate"
+
       responses:
         "200":
-          description: Updated engine status
+          description: Updated Engine Status
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/EngineStatus"
+
         "400":
           description: Invalid configuration
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+
         "409":
-          description: Cannot change this field while the engine is running
+          description: Engine running
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+
   /engine/start:
     post:
       operationId: startEngine
-      tags: [engine]
-      summary: Start (or resume) the trading engine
-      description: Connects to Deriv using the account type in the current config, subscribes to ticks, and begins evaluating the Under 9 / Under 8 digit strategy. Resuming from paused continues the same session; starting from idle or stopped begins a fresh session and resets session stats.
+      tags:
+      - engine
+      summary: Start Engine
       responses:
         "200":
-          description: Engine status after starting
+          description: Started
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/EngineStatus"
-        "400":
-          description: Cannot start (e.g. missing Deriv token for selected account type)
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+
   /engine/pause:
     post:
       operationId: pauseEngine
-      tags: [engine]
-      summary: Pause the trading engine
-      description: Stops evaluating new trade entries but keeps the live tick connection open so the session can be resumed instantly. Does not affect a trade already in flight.
+      tags:
+      - engine
+      summary: Pause Engine
       responses:
         "200":
-          description: Engine status after pausing
+          description: Paused
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/EngineStatus"
+
   /engine/stop:
     post:
       operationId: stopEngine
-      tags: [engine]
-      summary: Emergency stop
-      description: Immediately halts trade evaluation and closes the live connection, returning the engine to idle. Session stats remain visible until the next start.
+      tags:
+      - engine
+      summary: Stop Engine
       responses:
         "200":
-          description: Engine status after stopping
+          description: Stopped
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/EngineStatus"
+
 components:
   schemas:
     HealthStatus:
       type: object
+      required:
+      - status
       properties:
         status:
           type: string
-      required:
-        - status
+
     ErrorResponse:
       type: object
-      required: [error]
+      required:
+      - error
       properties:
         error:
           type: string
+
     Market:
       type: object
-      required: [symbol, label]
+      required:
+      - symbol
+      - label
       properties:
         symbol:
           type: string
         label:
           type: string
+
     EngineConfig:
       type: object
       required:
-        - market
-        - accountType
-        - baseStake
-        - martingaleEnabled
-        - martingaleMultiplier
-        - stopLoss
-        - takeProfit
-        - maxSuccessiveLosses
-        - maxSuccessiveWins
+      - market
+      - accountType
+      - currency
+      - duration
+      - stakeMode
+      - baseStake
+      - stakePercent
+      - minimumStake
+      - maximumStake
+      - reserveBalance
+      - martingaleEnabled
+      - martingaleMultiplier
+      - kellyEnabled
+      - kellyFraction
+      - stopLossMode
+      - stopLoss
+      - takeProfitMode
+      - takeProfit
+      - dailyLossLimit
+      - dailyProfitLimit
+      - maxSuccessiveLosses
+      - maxSuccessiveWins
+      - analysisWindow
+      - minimumSamples
+      - under8Threshold
+      - under9Threshold
+      - minimumTradeQuality
+
       properties:
         market:
           type: string
-          description: Deriv volatility index symbol, e.g. R_100
+
         accountType:
           type: string
-          enum: [demo, real]
+          enum:
+          - demo
+          - real
+
+        currency:
+          type: string
+
+        duration:
+          type: integer
+
+        stakeMode:
+          type: string
+          enum:
+          - fixed
+          - percentage
+          - kelly
+
         baseStake:
           type: number
-          minimum: 0.35
+
+        stakePercent:
+          type: number
+
+        minimumStake:
+          type: number
+
+        maximumStake:
+          type: number
+
+        reserveBalance:
+          type: number
+
         martingaleEnabled:
           type: boolean
+
         martingaleMultiplier:
           type: number
-          minimum: 1
+
+        kellyEnabled:
+          type: boolean
+
+        kellyFraction:
+          type: number
+
+        stopLossMode:
+          type: string
+          enum:
+          - amount
+          - percentage
+
         stopLoss:
           type: number
-          minimum: 0
+
+        takeProfitMode:
+          type: string
+          enum:
+          - amount
+          - percentage
+
         takeProfit:
           type: number
-          minimum: 0
+
+        dailyLossLimit:
+          type: number
+
+        dailyProfitLimit:
+          type: number
+
         maxSuccessiveLosses:
           type: integer
-          minimum: 1
+
         maxSuccessiveWins:
           type: integer
-          minimum: 1
+
+        analysisWindow:
+          type: integer
+
+        minimumSamples:
+          type: integer
+
+        under8Threshold:
+          type: number
+
+        under9Threshold:
+          type: number
+
+        minimumTradeQuality:
+          type: number
+
     EngineConfigUpdate:
       type: object
       properties:
         market:
           type: string
+
         accountType:
           type: string
-          enum: [demo, real]
+          enum:
+          - demo
+          - real
+
+        currency:
+          type: string
+
+        duration:
+          type: integer
+
+        stakeMode:
+          type: string
+          enum:
+          - fixed
+          - percentage
+          - kelly
+
         baseStake:
           type: number
-          minimum: 0.35
+
+        stakePercent:
+          type: number
+
+        minimumStake:
+          type: number
+
+        maximumStake:
+          type: number
+
+        reserveBalance:
+          type: number
+
         martingaleEnabled:
           type: boolean
+
         martingaleMultiplier:
           type: number
-          minimum: 1
+
+        kellyEnabled:
+          type: boolean
+
+        kellyFraction:
+          type: number
+
+        stopLossMode:
+          type: string
+          enum:
+          - amount
+          - percentage
+
         stopLoss:
           type: number
-          minimum: 0
+
+        takeProfitMode:
+          type: string
+          enum:
+          - amount
+          - percentage
+
         takeProfit:
           type: number
-          minimum: 0
+
+        dailyLossLimit:
+          type: number
+
+        dailyProfitLimit:
+          type: number
+
         maxSuccessiveLosses:
           type: integer
-          minimum: 1
+
         maxSuccessiveWins:
           type: integer
-          minimum: 1
+
+        analysisWindow:
+          type: integer
+
+        minimumSamples:
+          type: integer
+
+        under8Threshold:
+          type: number
+
+        under9Threshold:
+          type: number
+
+        minimumTradeQuality:
+          type: number
     TradeRecord:
       type: object
       required:
-        - id
-        - timestamp
-        - market
-        - contractType
-        - barrier
-        - stake
-        - payout
-        - profit
-        - result
-        - exitDigit
+      - id
+      - timestamp
+      - market
+      - signal
+      - stake
+      - won
+      - profit
+      - buyPrice
+      - sellPrice
+      - result
+
       properties:
         id:
           type: string
+
         timestamp:
-          type: string
-          format: date-time
+          type: integer
+          format: int64
+
         market:
           type: string
-        contractType:
+
+        signal:
           type: string
-        barrier:
-          type: string
+          enum:
+          - UNDER8
+          - UNDER9
+          - NONE
+
         stake:
           type: number
-        payout:
-          type: number
+
+        won:
+          type: boolean
+
         profit:
           type: number
+
+        buyPrice:
+          type: number
+
+        sellPrice:
+          type: number
+
         result:
           type: string
-          enum: [win, loss]
-        exitDigit:
+          enum:
+          - win
+          - loss
+    AnalysisStatus:
+      type: object
+      required:
+      - under8Confidence
+      - under9Confidence
+      - tradeQuality
+      - signal
+      - windowFillCount
+      - windowSize
+      properties:
+        under8Confidence:
+          type:
+          - number
+          - "null"
+
+        under9Confidence:
+          type:
+          - number
+          - "null"
+
+        tradeQuality:
+          type:
+          - number
+          - "null"
+
+        signal:
+          type: string
+          enum:
+          - UNDER8
+          - UNDER9
+          - NONE
+
+        windowFillCount:
           type: integer
+
+        windowSize:
+          type: integer
+
+    SessionStatus:
+      type: object
+      required:
+      - sessionPnl
+      - totalTrades
+      - wins
+      - losses
+      - successiveWins
+      - successiveLosses
+      - startedAt
+      properties:
+        sessionPnl:
+          type: number
+
+        totalTrades:
+          type: integer
+
+        wins:
+          type: integer
+
+        losses:
+          type: integer
+
+        successiveWins:
+          type: integer
+
+        successiveLosses:
+          type: integer
+
+        startedAt:
+          type:
+          - string
+          - "null"
+
+    ConnectionStatus:
+      type: object
+      required:
+      - accountId
+      - balance
+      - lastTick
+      - lastDigit
+      - health
+      properties:
+        accountId:
+          type:
+          - string
+          - "null"
+
+        balance:
+          type:
+          - number
+          - "null"
+
+        lastTick:
+          type:
+          - number
+          - "null"
+
+        lastDigit:
+          type:
+          - integer
+          - "null"
+
+        health:
+          type: string
+          enum:
+          - healthy
+          - warning
+          - error
+
     EngineStatus:
       type: object
       required:
-        - state
-        - config
-        - accountId
-        - currentStake
-        - successiveLosses
-        - successiveWins
-        - sessionPnl
-        - totalTrades
-        - wins
-        - losses
-        - lastTick
-        - lastDigit
-        - windowFillCount
-        - windowSize
-        - under9Confidence
-        - under8Confidence
-        - stopReason
-        - errorMessage
-        - startedAt
-        - recentTrades
+      - state
+      - config
+      - connection
+      - analysis
+      - session
+      - currentStake
+      - nextStake
+      - stopReason
+      - errorMessage
+      - recentTrades
+
       properties:
         state:
           type: string
-          enum: [idle, running, paused, stopped]
+          enum:
+          - idle
+          - starting
+          - running
+          - paused
+          - stopping
+          - stopped
+
         config:
           $ref: "#/components/schemas/EngineConfig"
-        accountId:
-          type: ["string", "null"]
+
+        connection:
+          $ref: "#/components/schemas/ConnectionStatus"
+
+        analysis:
+          $ref: "#/components/schemas/AnalysisStatus"
+
+        session:
+          $ref: "#/components/schemas/SessionStatus"
+
         currentStake:
           type: number
-        successiveLosses:
-          type: integer
-        successiveWins:
-          type: integer
-        sessionPnl:
+
+        nextStake:
           type: number
-        totalTrades:
-          type: integer
-        wins:
-          type: integer
-        losses:
-          type: integer
-        lastTick:
-          type: ["number", "null"]
-        lastDigit:
-          type: ["integer", "null"]
-        windowFillCount:
-          type: integer
-        windowSize:
-          type: integer
-        under9Confidence:
-          type: ["number", "null"]
-        under8Confidence:
-          type: ["number", "null"]
+
         stopReason:
-          type: ["string", "null"]
+          type:
+          - string
+          - "null"
+
         errorMessage:
-          type: ["string", "null"]
-        startedAt:
-          type: ["string", "null"]
-          format: date-time
+          type:
+          - string
+          - "null"
+
         recentTrades:
           type: array
           items:

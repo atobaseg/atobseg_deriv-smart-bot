@@ -12,13 +12,10 @@ import {
 import { derivEngine } from "../lib/deriv/engine";
 import { MARKETS } from "../lib/deriv/markets";
 import { EngineUserError } from "../lib/deriv/types";
+import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
-/**
- * Convert internal MARKET object into the array
- * required by ListMarketsResponse.
- */
 function getMarketsResponse() {
   return Object.values(MARKETS).map((market) => ({
     symbol: market.symbol,
@@ -26,24 +23,29 @@ function getMarketsResponse() {
   }));
 }
 
-/**
- * GET /engine/markets
- */
 router.get("/engine/markets", (_req: Request, res: Response): void => {
   res.json(ListMarketsResponse.parse(getMarketsResponse()));
 });
 
-/**
- * Alias used by frontend
- */
 router.get("/markets", (_req: Request, res: Response): void => {
   res.json(ListMarketsResponse.parse(getMarketsResponse()));
 });
 
+/**
+ * GET /engine/status
+ *
+ * IMPORTANT:
+ * Return the EngineStatus exactly as defined by types.ts
+ */
 router.get("/engine/status", (_req: Request, res: Response): void => {
-  res.json(GetEngineStatusResponse.parse(derivEngine.getStatus()));
+  const status = derivEngine.getStatus();
+
+  res.json(GetEngineStatusResponse.parse(status));
 });
 
+/**
+ * PATCH /engine/config
+ */
 router.patch("/engine/config", (req: Request, res: Response): void => {
   const parsed = UpdateEngineConfigBody.safeParse(req.body);
 
@@ -54,6 +56,7 @@ router.patch("/engine/config", (req: Request, res: Response): void => {
 
   try {
     const status = derivEngine.updateConfig(parsed.data);
+
     res.json(UpdateEngineConfigResponse.parse(status));
   } catch (err) {
     if (err instanceof EngineUserError) {
@@ -65,27 +68,68 @@ router.patch("/engine/config", (req: Request, res: Response): void => {
   }
 });
 
-router.post("/engine/start", async (req: Request, res: Response): Promise<void> => {
-  try {
-    const status = await derivEngine.start();
-    res.json(StartEngineResponse.parse(status));
-  } catch (err) {
-    if (err instanceof EngineUserError) {
-      req.log.warn({ err }, "Engine start rejected");
-      res.status(err.status).json({ error: err.message });
-      return;
+/**
+ * POST /engine/start
+ */
+router.post(
+  "/engine/start",
+  async (_req: Request, res: Response): Promise<void> => {
+    try {
+      const status = await derivEngine.start();
+
+      res.json(StartEngineResponse.parse(status));
+    } catch (err) {
+      if (err instanceof EngineUserError) {
+        logger.warn({ err }, "Engine start rejected");
+        res.status(err.status).json({ error: err.message });
+        return;
+      }
+
+      throw err;
     }
-
-    throw err;
   }
-});
+);
 
-router.post("/engine/pause", (_req: Request, res: Response): void => {
-  res.json(PauseEngineResponse.parse(derivEngine.pause()));
-});
+/**
+ * POST /engine/pause
+ */
+router.post(
+  "/engine/pause",
+  async (_req: Request, res: Response): Promise<void> => {
+    try {
+      const status = await derivEngine.pause();
 
-router.post("/engine/stop", (_req: Request, res: Response): void => {
-  res.json(StopEngineResponse.parse(derivEngine.emergencyStop()));
-});
+      res.json(PauseEngineResponse.parse(status));
+    } catch (err) {
+      if (err instanceof EngineUserError) {
+        res.status(err.status).json({ error: err.message });
+        return;
+      }
+
+      throw err;
+    }
+  }
+);
+
+/**
+ * POST /engine/stop
+ */
+router.post(
+  "/engine/stop",
+  async (_req: Request, res: Response): Promise<void> => {
+    try {
+      const status = await derivEngine.stop();
+
+      res.json(StopEngineResponse.parse(status));
+    } catch (err) {
+      if (err instanceof EngineUserError) {
+        res.status(err.status).json({ error: err.message });
+        return;
+      }
+
+      throw err;
+    }
+  }
+);
 
 export default router;

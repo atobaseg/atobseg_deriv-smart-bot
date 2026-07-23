@@ -1,39 +1,48 @@
-import * as React from "react"
-import { AlertCircle } from "lucide-react"
-import { EngineStatus } from "@workspace/api-client-react"
-import { Badge } from "@/components/ui/badge"
-import { formatMoney } from "@/lib/utils"
-import { Card, CardContent } from "@/components/ui/card"
+import * as React from "react";
+import { AlertCircle } from "lucide-react";
+import { EngineStatus } from "@workspace/api-client-react";
+import { Badge } from "@/components/ui/badge";
+import { formatMoney } from "@/lib/utils";
+import { Card, CardContent } from "@/components/ui/card";
 
-// Make status optional to prevent crash if parent hasn't passed data yet
 export function StatusHeader({ status }: { status?: EngineStatus }) {
-  // If no status exists, return a minimal loading state or nothing
   if (!status) {
     return <div className="p-4 text-sm text-muted-foreground">Connecting...</div>;
   }
 
-  const state = status.state ?? "idle";
-  const accountId = status.accountId ?? "";
-  const sessionPnl = status.sessionPnl ?? 0;
-  const wins = status.wins ?? 0;
-  const losses = status.losses ?? 0;
-  const successiveWins = status.successiveWins ?? 0;
-  const successiveLosses = status.successiveLosses ?? 0;
+  const state = status.state;
+
+  const accountId = status.connection.accountId ?? "";
+
+  const sessionPnl = status.session.sessionPnl ?? 0;
+  const wins = status.session.wins ?? 0;
+  const losses = status.session.losses ?? 0;
+  const successiveWins = status.session.successiveWins ?? 0;
+  const successiveLosses = status.session.successiveLosses ?? 0;
+  const totalTrades = status.session.totalTrades ?? 0;
+
   const currentStake = status.currentStake ?? 0;
+
   const stopReason = status.stopReason;
   const errorMessage = status.errorMessage;
-  const totalTrades = status.totalTrades ?? 0;
 
   const getBadgeVariant = (s: string) => {
     switch (s) {
-      case "running": return "success";
-      case "paused": return "warning";
-      case "stopped": return "destructive";
-      default: return "outline";
+      case "running":
+        return "success";
+      case "paused":
+        return "warning";
+      case "stopped":
+        return "destructive";
+      default:
+        return "outline";
     }
-  }
+  };
 
-  const pnlColor = sessionPnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+  const pnlColor =
+    sessionPnl >= 0
+      ? "text-green-600 dark:text-green-400"
+      : "text-red-600 dark:text-red-400";
 
   return (
     <div className="flex flex-col gap-4">
@@ -44,7 +53,7 @@ export function StatusHeader({ status }: { status?: EngineStatus }) {
         </div>
       )}
 
-      {stopReason && !errorMessage && state === 'stopped' && (
+      {stopReason && !errorMessage && state === "stopped" && (
         <div className="bg-amber-500/10 text-amber-700 dark:text-amber-500 border-l-4 border-amber-500 p-3 rounded-md flex items-start gap-3">
           <AlertCircle className="w-5 h-5 mt-0.5 shrink-0" />
           <p className="text-sm font-medium">{stopReason}</p>
@@ -56,31 +65,60 @@ export function StatusHeader({ status }: { status?: EngineStatus }) {
           <div className="flex justify-between items-start mb-4">
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <Badge variant={getBadgeVariant(state as string)} className="uppercase tracking-wider px-2 py-0.5 text-[10px]">
+                <Badge
+                  variant={getBadgeVariant(state)}
+                  className="uppercase tracking-wider px-2 py-0.5 text-[10px]"
+                >
                   {state}
                 </Badge>
-                {accountId && <span className="text-xs font-mono text-muted-foreground">{accountId}</span>}
+
+                {accountId && (
+                  <span className="text-xs font-mono text-muted-foreground">
+                    {accountId}
+                  </span>
+                )}
               </div>
-              <h2 className="text-sm text-muted-foreground font-medium">Session P&L</h2>
-              <div className={`text-3xl font-bold font-mono tracking-tight ${pnlColor}`}>
-                {sessionPnl > 0 ? "+" : ""}{formatMoney(sessionPnl)}
+
+              <h2 className="text-sm text-muted-foreground font-medium">
+                Session P&amp;L
+              </h2>
+
+              <div
+                className={`text-3xl font-bold font-mono tracking-tight ${pnlColor}`}
+              >
+                {sessionPnl > 0 ? "+" : ""}
+                {formatMoney(sessionPnl)}
               </div>
             </div>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-4 border-t border-border/50">
             <div className="flex flex-col gap-1">
-              <span className="text-xs text-muted-foreground uppercase tracking-wider">Win / Loss</span>
-              <span className="font-mono font-medium">{wins} <span className="text-muted-foreground font-sans">/</span> {losses}</span>
+              <span className="text-xs text-muted-foreground uppercase tracking-wider">
+                Win / Loss
+              </span>
+
+              <span className="font-mono font-medium">
+                {wins}
+                <span className="text-muted-foreground font-sans"> / </span>
+                {losses}
+              </span>
             </div>
-            
+
             <div className="flex flex-col gap-1">
-              <span className="text-xs text-muted-foreground uppercase tracking-wider">Current Streak</span>
+              <span className="text-xs text-muted-foreground uppercase tracking-wider">
+                Current Streak
+              </span>
+
               <span className="font-mono font-medium">
                 {successiveWins > 0 ? (
-                  <span className="text-green-600">{successiveWins} W</span>
+                  <span className="text-green-600">
+                    {successiveWins} W
+                  </span>
                 ) : successiveLosses > 0 ? (
-                  <span className="text-red-600">{successiveLosses} L</span>
+                  <span className="text-red-600">
+                    {successiveLosses} L
+                  </span>
                 ) : (
                   <span className="text-muted-foreground">-</span>
                 )}
@@ -88,17 +126,27 @@ export function StatusHeader({ status }: { status?: EngineStatus }) {
             </div>
 
             <div className="flex flex-col gap-1">
-              <span className="text-xs text-muted-foreground uppercase tracking-wider">Active Stake</span>
-              <span className="font-mono font-medium">{formatMoney(currentStake)}</span>
+              <span className="text-xs text-muted-foreground uppercase tracking-wider">
+                Active Stake
+              </span>
+
+              <span className="font-mono font-medium">
+                {formatMoney(currentStake)}
+              </span>
             </div>
 
             <div className="flex flex-col gap-1">
-              <span className="text-xs text-muted-foreground uppercase tracking-wider">Total Trades</span>
-              <span className="font-mono font-medium">{totalTrades}</span>
+              <span className="text-xs text-muted-foreground uppercase tracking-wider">
+                Total Trades
+              </span>
+
+              <span className="font-mono font-medium">
+                {totalTrades}
+              </span>
             </div>
           </div>
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

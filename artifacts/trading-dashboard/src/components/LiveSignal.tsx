@@ -1,45 +1,62 @@
-import * as React from "react"
-import { EngineStatus } from "@workspace/api-client-react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
-import { formatPercent } from "@/lib/utils"
+import * as React from "react";
+import { EngineStatus } from "@workspace/api-client-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { formatPercent } from "@/lib/utils";
 
 export function LiveSignal({ status }: { status: EngineStatus }) {
-  // Use '??' to provide safe fallbacks for every property
-  const lastTick = status?.lastTick ?? null;
-  const lastDigit = status?.lastDigit ?? null;
-  const windowFillCount = status?.windowFillCount ?? 0;
-  const windowSize = status?.windowSize ?? 0;
-  const under9Confidence = status?.under9Confidence ?? 0;
-  const under8Confidence = status?.under8Confidence ?? 0;
-  const state = status?.state ?? 'idle';
+  const lastTick = status.connection.lastTick ?? null;
+  const lastDigit = status.connection.lastDigit ?? null;
 
-  const isRunning = state === 'running';
+  const windowFillCount = status.analysis.windowFillCount ?? 0;
+  const windowSize = status.analysis.windowSize ?? 0;
+
+  const under9Confidence = status.analysis.under9Confidence ?? 0;
+  const under8Confidence = status.analysis.under8Confidence ?? 0;
+
+  const state = status.state;
+  const isRunning = state === "running";
 
   return (
     <Card className="overflow-hidden relative">
       <CardHeader className="pb-2 border-b border-border/50 bg-muted/20">
         <div className="flex justify-between items-center">
-          <CardTitle className="text-sm font-semibold tracking-wide uppercase text-muted-foreground">Live Signal</CardTitle>
+          <CardTitle className="text-sm font-semibold tracking-wide uppercase text-muted-foreground">
+            Live Signal
+          </CardTitle>
+
           <div className="text-xs font-mono bg-background border px-2 py-1 rounded-md">
-            {windowFillCount} <span className="text-muted-foreground">/</span> {windowSize} Ticks
+            {windowFillCount}
+            <span className="text-muted-foreground"> / </span>
+            {windowSize} Ticks
           </div>
         </div>
       </CardHeader>
-      
+
       <CardContent className="p-5">
         <div className="flex justify-between items-end mb-6">
           <div>
-            <div className="text-xs text-muted-foreground mb-1 uppercase tracking-wider">Last Price</div>
+            <div className="text-xs text-muted-foreground mb-1 uppercase tracking-wider">
+              Last Price
+            </div>
+
             <div className="text-2xl font-mono font-medium tabular-nums">
               {lastTick !== null ? lastTick.toFixed(4) : "—"}
             </div>
           </div>
-          
+
           <div className="text-right">
-            <div className="text-xs text-muted-foreground mb-1 uppercase tracking-wider">Digit</div>
-            <div className={`text-3xl font-mono font-bold w-10 h-10 flex items-center justify-center rounded-lg ${lastDigit !== null ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
-              {lastDigit !== null ? lastDigit : "-"}
+            <div className="text-xs text-muted-foreground mb-1 uppercase tracking-wider">
+              Digit
+            </div>
+
+            <div
+              className={`text-3xl font-mono font-bold w-10 h-10 flex items-center justify-center rounded-lg ${lastDigit !== null
+                  ? "bg-primary/10 text-primary"
+                  : "bg-muted text-muted-foreground"
+                }`}
+            >
+              {lastDigit ?? "-"}
             </div>
           </div>
         </div>
@@ -48,28 +65,34 @@ export function LiveSignal({ status }: { status: EngineStatus }) {
           <div className="space-y-1.5">
             <div className="flex justify-between items-center text-xs font-medium">
               <span>Under 9 Confidence</span>
-              <span className="font-mono">{formatPercent(under9Confidence)}</span>
+              <span className="font-mono">
+                {formatPercent(under9Confidence)}
+              </span>
             </div>
-            <Progress 
-              value={under9Confidence * 100} 
+
+            <Progress
+              value={under9Confidence * 100}
               className="h-1.5 bg-muted"
             />
           </div>
-          
+
           <div className="space-y-1.5">
             <div className="flex justify-between items-center text-xs font-medium">
               <span>Under 8 Confidence</span>
-              <span className="font-mono">{formatPercent(under8Confidence)}</span>
+              <span className="font-mono">
+                {formatPercent(under8Confidence)}
+              </span>
             </div>
-            <Progress 
-              value={under8Confidence * 100} 
+
+            <Progress
+              value={under8Confidence * 100}
               className="h-1.5 bg-muted"
             />
           </div>
         </div>
       </CardContent>
-      
-      {(!isRunning && state !== 'paused') && (
+
+      {!isRunning && state !== "paused" && (
         <div className="absolute inset-0 bg-background/50 backdrop-blur-[1px] flex items-center justify-center z-10 pointer-events-none">
           <div className="bg-background/90 border shadow-sm px-3 py-1.5 rounded-full text-xs font-medium text-muted-foreground tracking-wide uppercase">
             Awaiting Start
@@ -77,5 +100,5 @@ export function LiveSignal({ status }: { status: EngineStatus }) {
         </div>
       )}
     </Card>
-  )
+  );
 }

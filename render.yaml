@@ -1,0 +1,29 @@
+services:
+- type: web
+  name: deriv-smart-bot-api
+  runtime: node
+
+  rootDir: .
+
+  buildCommand: |
+    pnpm install
+    pnpm --filter @workspace/api-server build
+
+  startCommand: |
+    pnpm --filter @workspace/api-server start
+
+  envVars:
+  - key: NODE_ENV
+    value: production
+
+  - key: LOG_LEVEL
+    value: info
+
+  - key: DERIV_APP_ID
+    sync: false
+
+  - key: DERIV_DEMO_TOKEN
+    sync: false
+
+  - key: DERIV_REAL_TOKEN
+    sync: false
