@@ -85,10 +85,15 @@ export class DerivClient {
             throw new Error("DERIV_APP_ID is not configured.");
         }
 
-        const token = process.env.DERIV_TOKEN;
+        // Use demo token if available, otherwise fall back to real token.
+        const token =
+            process.env.DERIV_DEMO_TOKEN ??
+            process.env.DERIV_REAL_TOKEN;
 
         if (!token) {
-            throw new Error("DERIV_TOKEN is not configured.");
+            throw new Error(
+                "Neither DERIV_DEMO_TOKEN nor DERIV_REAL_TOKEN is configured."
+            );
         }
 
         this.ws = new WebSocket(
