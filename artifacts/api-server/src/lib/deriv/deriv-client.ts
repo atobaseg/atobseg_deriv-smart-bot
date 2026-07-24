@@ -48,6 +48,67 @@ export class DerivClient {
     private tickCallback?:
         (tick: Tick) => void;
     //--------------------------------------------------
+    // Request tracking
+    //--------------------------------------------------
+
+    private reqId = 1;
+
+    private pendingRequests = new Map<
+        number,
+        {
+            resolve: (value: any) => void;
+            reject: (reason?: any) => void;
+            timeout: NodeJS.Timeout;
+        }
+    >();
+
+    private nextReqId(): number {
+
+        return this.reqId++;
+
+    }
+
+    private sendRequest(payload: any): Promise<any> {
+
+        if (!this.ws) {
+
+            throw new Error("Not connected.");
+
+        }
+
+        const ws = this.ws;
+
+        const reqId = this.nextReqId();
+
+        return new Promise((resolve, reject) => {
+
+            const timeout = setTimeout(() => {
+
+                this.pendingRequests.delete(reqId);
+
+                reject(new Error("Deriv request timed out."));
+
+            }, 15000);
+
+            this.pendingRequests.set(
+                reqId,
+                {
+                    resolve,
+                    reject,
+                    timeout
+                }
+            );
+
+            ws.send(
+                JSON.stringify({
+                    ...payload,
+                    req_id: reqId
+                })
+            );
+
+        });
+    }
+    //--------------------------------------------------
     // Status
     //--------------------------------------------------
 
@@ -208,14 +269,25 @@ export class DerivClient {
         request: ProposalRequest
     ): Promise<ProposalResponse> {
 
-        logger.info({
-            message: "Creating proposal",
-            request
+        const response = await this.sendRequest({
+            proposal: 1,
+            amount: request.amount,
+            basis: request.basis,
+            contract_type: request.contract_type,
+            currency: request.currency,
+            duration: request.duration,
+            duration_unit: request.duration_unit,
+            underlying_symbol: request.symbol,
+            barrier: request.barrier
         });
 
+        if (!response.proposal?.id) {
+            throw new Error("Failed to create proposal.");
+        }
+
         return {
-            id: `proposal-${Date.now()}`,
-            ask_price: request.amount
+            id: response.proposal.id,
+            ask_price: Number(response.proposal.ask_price)
         };
 
     }
@@ -227,14 +299,17 @@ export class DerivClient {
         price: number
     ): Promise<BuyResponse> {
 
-        logger.info({
-            message: "Buying contract",
-            proposalId,
+        const response = await this.sendRequest({
+            buy: proposalId,
             price
         });
 
+        if (!response.buy?.contract_id) {
+            throw new Error("Buy request failed.");
+        }
+
         return {
-            contract_id: Date.now()
+            contract_id: Number(response.buy.contract_id)
         };
 
     }
@@ -245,25 +320,23 @@ export class DerivClient {
         contractId: number
     ): Promise<ContractResult> {
 
-        logger.info({
-            message: "Waiting for contract settlement",
-            contractId
+        const response = await this.sendRequest({
+            proposal_open_contract: 1,
+            contract_id: contractId
         });
 
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        const contract = response.proposal_open_contract;
+
+        if (!contract) {
+            throw new Error("Failed to retrieve contract.");
+        }
 
         return {
-
-            contract_id: contractId,
-
-            won: true,
-
-            profit: 0,
-
-            buy_price: 0,
-
-            sell_price: 0
-
+            contract_id: Number(contract.contract_id),
+            profit: Number(contract.profit ?? 0),
+            buy_price: Number(contract.buy_price ?? 0),
+            sell_price: Number(contract.sell_price ?? 0),
+            won: Number(contract.profit ?? 0) > 0
         };
 
     }
