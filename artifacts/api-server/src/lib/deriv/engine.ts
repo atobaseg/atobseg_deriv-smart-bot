@@ -1,5 +1,4 @@
 import { ConfidenceEngine } from "./analysis";
-import { CONTRACTS, signalToContract } from "./contracts";
 import { DerivClient } from "./deriv-client";
 import { DEFAULT_ENGINE_CONFIG } from "./config";
 import { getMarket } from "./markets";
@@ -13,9 +12,7 @@ import {
     EngineConfig,
     EngineStatus,
     EngineState,
-    EngineUserError,
-    TradeSignal,
-    TradeRecord
+    EngineUserError
 } from "./types";
 
 import { logger } from "../logger";
@@ -72,9 +69,7 @@ export class DerivEngine {
     // Constructor
     //--------------------------------------------------
 
-    constructor(
-        config: Partial<EngineConfig> = {}
-    ) {
+    constructor(config: Partial<EngineConfig> = {}) {
 
         this.config = {
 
@@ -87,9 +82,7 @@ export class DerivEngine {
         validateConfig(this.config);
 
         this.confidenceEngine =
-            new ConfidenceEngine(
-                this.config
-            );
+            new ConfidenceEngine(this.config);
 
         this.stakeManager =
             new StakeManager(this.config);
@@ -104,10 +97,10 @@ export class DerivEngine {
             new DerivClient();
 
         this.tradeManager =
-            new TradeManager(
-                this.client
-            );
+            new TradeManager(this.client);
+
     }
+
     //--------------------------------------------------
     // Configuration
     //--------------------------------------------------
@@ -136,9 +129,7 @@ export class DerivEngine {
         validateConfig(this.config);
 
         this.confidenceEngine =
-            new ConfidenceEngine(
-                this.config
-            );
+            new ConfidenceEngine(this.config);
 
         this.stakeManager =
             new StakeManager(this.config);
@@ -168,23 +159,17 @@ export class DerivEngine {
 
             connection: {
 
-                accountId:
-                    this.accountId,
+                accountId: this.accountId,
 
-                balance:
-                    this.balance,
+                balance: this.balance,
 
-                lastTick:
-                    this.lastTick,
+                lastTick: this.lastTick,
 
-                lastDigit:
-                    this.lastDigit,
+                lastDigit: this.lastDigit,
 
                 health:
                     this.client.isConnected()
-
                         ? "healthy"
-
                         : "error"
 
             },
@@ -222,9 +207,7 @@ export class DerivEngine {
         validateConfig(this.config);
 
         if (this.state === "running") {
-
             return this.getStatus();
-
         }
 
         this.clearErrors();
@@ -236,9 +219,6 @@ export class DerivEngine {
             this.state = "starting";
 
             await this.client.connect();
-            await this.client.authorize(
-                this.config.accountType
-            );
 
             this.accountId =
                 this.client.getAccountId();
@@ -261,7 +241,11 @@ export class DerivEngine {
 
                 market.symbol,
 
-                (tick) => this.onTick(tick)
+                (tick) => {
+
+                    void this.onTick(tick);
+
+                }
 
             );
 
@@ -277,8 +261,7 @@ export class DerivEngine {
 
             });
 
-        }
-        catch (error) {
+        } catch (error) {
 
             this.state = "stopped";
 
@@ -308,8 +291,7 @@ export class DerivEngine {
 
             await this.client.disconnect();
 
-        }
-        finally {
+        } finally {
 
             this.state = "stopped";
 
@@ -383,12 +365,11 @@ export class DerivEngine {
 
         this.lastTick = tick.quote;
 
-        this.lastDigit =
-            Number(
-                tick.quote
-                    .toFixed(2)
-                    .slice(-1)
-            );
+        this.lastDigit = Number(
+            tick.quote
+                .toFixed(2)
+                .slice(-1)
+        );
 
         this.confidenceEngine.addTick(
             this.lastDigit
@@ -397,21 +378,18 @@ export class DerivEngine {
         const signal =
             this.confidenceEngine.getSignal();
 
-        if (!signal) {
+        // Wait until enough ticks have filled the analysis window
+        if (signal === "NONE") {
             return;
         }
 
-        if (
-            !this.riskManager.canTrade()
-        ) {
+        if (!this.riskManager.canTrade()) {
             return;
         }
 
         try {
 
-            await this.executeSignal(
-                signal
-            );
+            await this.executeSignal(signal);
 
         } catch (error) {
 
@@ -420,79 +398,90 @@ export class DerivEngine {
         }
 
     }
-
     //--------------------------------------------------
     // Signal Execution
     //--------------------------------------------------
 
     private async executeSignal(
-        signal: TradeSignal
+        signal: "UNDER8" | "UNDER9"
     ): Promise<void> {
-
         this.tradeInFlight = true;
 
         try {
 
-            const contract =
-                signalToContract(signal);
-
             const stake =
                 this.stakeManager.getNextStake();
 
-            const proposal =
-                await this.client.proposal({
+            const trade =
+                await this.tradeManager.executeTrade(
 
-                    symbol:
-                        this.config.market,
+                    signal,
 
-                    amount:
-                        stake,
+                    this.config.market,
 
-                    basis:
-                        "stake",
+                    stake,
 
-                    contract_type:
-                        contract.type,
+                    this.config.currency,
 
-                    currency:
-                        this.config.currency,
+                    this.config.duration
 
-                    duration:
-                        this.config.duration,
+                );
 
-                    duration_unit:
-                        "t",
+            this.sessionManager.addTrade(trade);
 
-                    barrier:
-                        contract.barrier
+            if (trade.won) {
 
-                });
+                this.stakeManager.recordWin();
 
-            const buy =
-                await this.client.buy(
+                this.riskManager.recordWin(trade);
 
-                    proposal.id,
+                logger.info({
+
+                    message: "Trade WON",
+
+                    profit: trade.profit,
 
                     stake
 
-                );
+                });
 
-            const result =
-                await this.client.waitForContract(
+            } else {
 
-                    buy.contract_id
+                this.stakeManager.recordLoss();
 
-                );
+                this.riskManager.recordLoss(trade);
 
-            await this.handleTradeResult(
+                logger.warn({
 
-                signal,
+                    message: "Trade LOST",
 
-                stake,
+                    profit: trade.profit,
 
-                result
+                    stake
 
-            );
+                });
+
+            }
+
+            this.balance =
+                await this.client.getBalance();
+
+            if (this.riskManager.shouldStop()) {
+
+                this.stopReason =
+                    this.riskManager.getStopReason();
+
+                logger.warn({
+
+                    message: "Risk manager requested stop",
+
+                    reason: this.stopReason
+
+                });
+
+                await this.stop();
+
+            }
 
         } finally {
 
@@ -502,106 +491,8 @@ export class DerivEngine {
 
     }
     //--------------------------------------------------
-    // Trade Result Handling
-    //--------------------------------------------------
-
-    private async handleTradeResult(
-        signal: TradeSignal,
-        stake: number,
-        result: {
-            won: boolean;
-            profit: number;
-            contract_id: number;
-            buy_price: number;
-            sell_price: number;
-        }
-    ): Promise<void> {
-
-        const trade: TradeRecord = {
-
-            id: String(result.contract_id),
-
-            timestamp: Date.now(),
-
-            market: this.config.market,
-
-            signal,
-
-            stake,
-
-            won: result.won,
-
-            profit: result.profit,
-
-            buyPrice: result.buy_price,
-
-            sellPrice: result.sell_price,
-
-            result: result.won ? "win" : "loss"
-
-        };
-
-        this.sessionManager.addTrade(trade);
-
-        if (result.won) {
-
-            this.stakeManager.recordWin();
-
-            this.riskManager.recordWin(trade);
-
-            logger.info({
-
-                message: "Trade WON",
-
-                profit: result.profit,
-
-                stake
-
-            });
-
-        } else {
-
-            this.stakeManager.recordLoss();
-
-            this.riskManager.recordLoss(trade);
-
-            logger.warn({
-
-                message: "Trade LOST",
-
-                profit: result.profit,
-
-                stake
-
-            });
-
-        }
-
-        this.balance =
-            await this.client.getBalance();
-
-        if (this.riskManager.shouldStop()) {
-
-            this.stopReason =
-                this.riskManager.getStopReason();
-
-            logger.warn({
-
-                message: "Risk manager requested stop",
-
-                reason: this.stopReason
-
-            });
-
-            await this.stop();
-
-        }
-
-    }
-    //--------------------------------------------------
     // Compatibility Methods
     //--------------------------------------------------
-
 
     emergencyStop(): EngineStatus {
 
@@ -643,4 +534,5 @@ export class DerivEngine {
     }
 
 }
+
 export const derivEngine = new DerivEngine();
