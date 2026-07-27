@@ -1,3 +1,5 @@
+import axios from "axios";
+
 import WebSocket from "ws";
 
 import { logger } from "../logger";
@@ -47,6 +49,109 @@ export class DerivClient {
 
     private tickCallback?:
         (tick: Tick) => void;
+
+    private async getOptionsAccountId(): Promise<string> {
+
+        const appId = process.env.DERIV_APP_ID;
+
+        if (!appId) {
+            throw new Error("DERIV_APP_ID missing.");
+        }
+
+        const token =
+            process.env.DERIV_DEMO_TOKEN ??
+            process.env.DERIV_REAL_TOKEN;
+
+        if (!token) {
+            throw new Error("No Deriv PAT configured.");
+        }
+
+        const response = await axios.get(
+            "https://api.derivws.com/trading/v1/options/accounts",
+            {
+                headers: {
+                    "Authorization": `Bearer ${token}`,
+                    "Deriv-App-ID": appId
+                }
+            }
+        );
+
+        logger.info({
+            message: "Options accounts",
+            response: response.data
+        });
+
+        const accounts = response.data.data;
+
+        if (!accounts || accounts.length === 0) {
+            throw new Error("No Options trading account found.");
+        }
+
+        return accounts[0].account_id;
+
+    }
+
+
+    private async createOtpConnection(): Promise<string> {
+
+        const appId = process.env.DERIV_APP_ID;
+
+        if (!appId) {
+            throw new Error("DERIV_APP_ID missing.");
+        }
+
+        const token =
+            process.env.DERIV_DEMO_TOKEN ??
+            process.env.DERIV_REAL_TOKEN;
+
+        if (!token) {
+            throw new Error("No Deriv PAT configured.");
+        }
+
+        const accountId =
+            await this.getOptionsAccountId();
+
+        logger.info({
+
+            message: "Using Options account",
+
+            accountId
+
+        });
+
+        const response = await axios.post(
+
+            `https://api.derivws.com/trading/v1/options/accounts/${accountId}/otp`,
+
+            {},
+
+            {
+
+                headers: {
+
+                    "Authorization": `Bearer ${token}`,
+
+                    "Deriv-App-ID": appId
+
+                }
+
+            }
+
+        );
+
+        logger.info({
+
+            message: "OTP response",
+
+            response: response.data
+
+        });
+
+        return response.data.data.url;
+
+    }
+
+
     //--------------------------------------------------
     // Request tracking
     //--------------------------------------------------
@@ -108,6 +213,8 @@ export class DerivClient {
 
         });
     }
+
+
     //--------------------------------------------------
     // Status
     //--------------------------------------------------
@@ -140,38 +247,24 @@ export class DerivClient {
             return;
         }
 
-        const appId = process.env.DERIV_APP_ID;
+        const wsUrl =
+            await this.createOtpConnection();
 
-        if (!appId) {
-            throw new Error("DERIV_APP_ID is not configured.");
-        }
+        logger.info({
 
-        // Use demo token if available, otherwise fall back to real token.
-        const token =
-            process.env.DERIV_DEMO_TOKEN ??
-            process.env.DERIV_REAL_TOKEN;
+            message: "Connecting to Options WebSocket",
 
-        if (!token) {
-            throw new Error(
-                "Neither DERIV_DEMO_TOKEN nor DERIV_REAL_TOKEN is configured."
-            );
-        }
+            url: wsUrl
 
-        this.ws = new WebSocket(
-            `wss://ws.derivws.com/websockets/v3?app_id=${appId}`
-        );
+        });
+
+        this.ws = new WebSocket(wsUrl);
 
         await new Promise<void>((resolve, reject) => {
 
             this.ws!.once("open", () => {
 
                 this.connected = true;
-
-                this.ws!.send(
-                    JSON.stringify({
-                        authorize: token
-                    })
-                );
 
                 resolve();
 
