@@ -503,14 +503,36 @@ export class DerivClient {
         }
 
         //--------------------------------------------------
-        // Future routing
+        // Resolve pending requests
         //--------------------------------------------------
-        // Proposal responses
-        // Buy confirmations
-        // Contract updates
-        // Errors
-        // Ping/Pong
 
+        if (typeof message.req_id === "number") {
+
+            const pending =
+                this.pendingRequests.get(message.req_id);
+
+            if (pending) {
+
+                clearTimeout(pending.timeout);
+
+                this.pendingRequests.delete(message.req_id);
+
+                if (message.error) {
+
+                    pending.reject(
+                        new Error(message.error.message)
+                    );
+
+                } else {
+
+                    pending.resolve(message);
+
+                }
+
+            }
+
+            return;
+
+        }
     }
-
 }
