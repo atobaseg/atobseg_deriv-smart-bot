@@ -1,5 +1,4 @@
 import axios from "axios";
-
 import WebSocket from "ws";
 
 import { logger } from "../logger";
@@ -39,6 +38,10 @@ export interface ContractResult {
 
 export class DerivClient {
 
+    //--------------------------------------------------
+    // Connection
+    //--------------------------------------------------
+
     private ws: WebSocket | null = null;
 
     private connected = false;
@@ -47,113 +50,10 @@ export class DerivClient {
 
     private balance = 0;
 
-    private tickCallback?:
-        (tick: Tick) => void;
-
-    private async getOptionsAccountId(): Promise<string> {
-
-        const appId = process.env.DERIV_APP_ID;
-
-        if (!appId) {
-            throw new Error("DERIV_APP_ID missing.");
-        }
-
-        const token =
-            process.env.DERIV_DEMO_TOKEN ??
-            process.env.DERIV_REAL_TOKEN;
-
-        if (!token) {
-            throw new Error("No Deriv PAT configured.");
-        }
-
-        const response = await axios.get(
-            "https://api.derivws.com/trading/v1/options/accounts",
-            {
-                headers: {
-                    "Authorization": `Bearer ${token}`,
-                    "Deriv-App-ID": appId
-                }
-            }
-        );
-
-        logger.info({
-            message: "Options accounts",
-            response: response.data
-        });
-
-        const accounts = response.data.data;
-
-        if (!accounts || accounts.length === 0) {
-            throw new Error("No Options trading account found.");
-        }
-
-        return accounts[0].account_id;
-
-    }
-
-
-    private async createOtpConnection(): Promise<string> {
-
-        const appId = process.env.DERIV_APP_ID;
-
-        if (!appId) {
-            throw new Error("DERIV_APP_ID missing.");
-        }
-
-        const token =
-            process.env.DERIV_DEMO_TOKEN ??
-            process.env.DERIV_REAL_TOKEN;
-
-        if (!token) {
-            throw new Error("No Deriv PAT configured.");
-        }
-
-        const accountId =
-            await this.getOptionsAccountId();
-
-        logger.info({
-
-            message: "Using Options account",
-
-            accountId
-
-        });
-
-        const response = await axios.post(
-
-            `https://api.derivws.com/trading/v1/options/accounts/${accountId}/otp`,
-
-            {},
-
-            {
-
-                headers: {
-
-                    "Authorization": `Bearer ${token}`,
-
-                    "Deriv-App-ID": appId
-
-                }
-
-            }
-
-        );
-
-        logger.info({
-
-            message: "OTP response",
-
-            response: response.data
-
-        });
-
-        return response.data.data.url;
-
-    }
-
+    private tickCallback?: (tick: Tick) => void;
 
     //--------------------------------------------------
-    // Request tracking
+    // Request Routing
     //--------------------------------------------------
 
     private reqId = 1;
@@ -166,6 +66,18 @@ export class DerivClient {
             timeout: NodeJS.Timeout;
         }
     >();
+
+    //--------------------------------------------------
+    // Contract subscriptions
+    //--------------------------------------------------
+
+    private contractListeners = new Map<
+        number,
+        (message: any) => void
+    >();
+    //--------------------------------------------------
+    // Helpers
+    //--------------------------------------------------
 
     private nextReqId(): number {
 
@@ -181,8 +93,6 @@ export class DerivClient {
 
         }
 
-        const ws = this.ws;
-
         const reqId = this.nextReqId();
 
         return new Promise((resolve, reject) => {
@@ -191,29 +101,37 @@ export class DerivClient {
 
                 this.pendingRequests.delete(reqId);
 
-                reject(new Error("Deriv request timed out."));
+                reject(
+                    new Error("Deriv request timed out.")
+                );
 
             }, 15000);
 
-            this.pendingRequests.set(
-                reqId,
-                {
-                    resolve,
-                    reject,
-                    timeout
-                }
-            );
+            this.pendingRequests.set(reqId, {
 
-            ws.send(
+                resolve,
+
+                reject,
+
+                timeout
+
+            });
+
+            this.ws!.send(
+
                 JSON.stringify({
+
                     ...payload,
+
                     req_id: reqId
+
                 })
+
             );
 
         });
-    }
 
+    }
 
     //--------------------------------------------------
     // Status
@@ -238,27 +156,116 @@ export class DerivClient {
     }
 
     //--------------------------------------------------
+    // Options API
+    //--------------------------------------------------
+
+    private async getOptionsAccountId(): Promise<string> {
+
+        const appId = process.env.DERIV_APP_ID;
+
+        if (!appId) {
+
+            throw new Error("DERIV_APP_ID missing.");
+
+        }
+
+        const token =
+            process.env.DERIV_DEMO_TOKEN ??
+            process.env.DERIV_REAL_TOKEN;
+
+        if (!token) {
+
+            throw new Error("No Deriv PAT configured.");
+
+        }
+
+        const response = await axios.get(
+
+            "https://api.derivws.com/trading/v1/options/accounts",
+
+            {
+
+                headers: {
+
+                    Authorization: `Bearer ${token}`,
+
+                    "Deriv-App-ID": appId
+
+                }
+
+            }
+
+        );
+
+        const accounts = response.data.data;
+
+        if (!accounts?.length) {
+
+            throw new Error("No Options account found.");
+
+        }
+
+        return accounts[0].account_id;
+
+    }
+
+    private async createOtpConnection(): Promise<string> {
+
+        const appId = process.env.DERIV_APP_ID;
+
+        const token =
+            process.env.DERIV_DEMO_TOKEN ??
+            process.env.DERIV_REAL_TOKEN;
+
+        if (!appId || !token) {
+
+            throw new Error("Missing Deriv credentials.");
+
+        }
+
+        const accountId =
+            await this.getOptionsAccountId();
+
+        const response = await axios.post(
+
+            `https://api.derivws.com/trading/v1/options/accounts/${accountId}/otp`,
+
+            {},
+
+            {
+
+                headers: {
+
+                    Authorization: `Bearer ${token}`,
+
+                    "Deriv-App-ID": appId
+
+                }
+
+            }
+
+        );
+
+        return response.data.data.url;
+
+    }
+
+    //--------------------------------------------------
     // Connection
     //--------------------------------------------------
 
     async connect(): Promise<void> {
 
         if (this.connected) {
+
             return;
+
         }
 
-        const wsUrl =
+        const url =
             await this.createOtpConnection();
 
-        logger.info({
-
-            message: "Connecting to Options WebSocket",
-
-            url: wsUrl
-
-        });
-
-        this.ws = new WebSocket(wsUrl);
+        this.ws = new WebSocket(url);
 
         await new Promise<void>((resolve, reject) => {
 
@@ -275,8 +282,11 @@ export class DerivClient {
         });
 
         this.ws.on(
+
             "message",
+
             data => this.handleMessage(data.toString())
+
         );
 
         this.ws.on("close", () => {
@@ -284,7 +294,9 @@ export class DerivClient {
             this.connected = false;
 
             logger.warn({
+
                 message: "Disconnected from Deriv"
+
             });
 
         });
@@ -295,21 +307,18 @@ export class DerivClient {
 
         this.ws?.close();
 
-        this.connected = false;
-
         this.ws = null;
 
+        this.connected = false;
+
     }
+    //--------------------------------------------------
+    // Authorization
+    //--------------------------------------------------
 
     async authorize(
         accountType: "demo" | "real"
     ): Promise<void> {
-
-        if (!this.ws) {
-
-            throw new Error("Not connected.");
-
-        }
 
         const token =
             accountType === "demo"
@@ -322,13 +331,17 @@ export class DerivClient {
 
         }
 
-        this.ws.send(
-            JSON.stringify({
-                authorize: token
-            })
-        );
+        await this.sendRequest({
+
+            authorize: token
+
+        });
 
     }
+
+    //--------------------------------------------------
+    // Tick Subscription
+    //--------------------------------------------------
 
     async subscribeTicks(
 
@@ -338,24 +351,20 @@ export class DerivClient {
 
     ): Promise<void> {
 
-        if (!this.ws) {
-
-            throw new Error("Not connected.");
-
-        }
-
         this.tickCallback = callback;
 
-        this.ws.send(
-            JSON.stringify({
-                ticks: symbol,
-                subscribe: 1
-            })
-        );
+        await this.sendRequest({
+
+            ticks: symbol,
+
+            subscribe: 1
+
+        });
 
     }
+
     //--------------------------------------------------
-    // Trading
+    // Proposal
     //--------------------------------------------------
 
     async proposal(
@@ -363,78 +372,155 @@ export class DerivClient {
     ): Promise<ProposalResponse> {
 
         const response = await this.sendRequest({
+
             proposal: 1,
+
             amount: request.amount,
+
             basis: request.basis,
+
             contract_type: request.contract_type,
+
             currency: request.currency,
+
             duration: request.duration,
+
             duration_unit: request.duration_unit,
+
             underlying_symbol: request.symbol,
+
             barrier: request.barrier
+
         });
 
-        if (!response.proposal?.id) {
-            throw new Error("Failed to create proposal.");
-        }
-
         return {
+
             id: response.proposal.id,
-            ask_price: Number(response.proposal.ask_price)
+
+            ask_price:
+                Number(response.proposal.ask_price)
+
         };
 
     }
 
     //--------------------------------------------------
+    // Buy
+    //--------------------------------------------------
 
     async buy(
+
         proposalId: string,
+
         price: number
+
     ): Promise<BuyResponse> {
 
-        const response = await this.sendRequest({
-            buy: proposalId,
-            price
-        });
+        const response =
+            await this.sendRequest({
 
-        if (!response.buy?.contract_id) {
-            throw new Error("Buy request failed.");
-        }
+                buy: proposalId,
+
+                price
+
+            });
 
         return {
-            contract_id: Number(response.buy.contract_id)
+
+            contract_id:
+                Number(response.buy.contract_id)
+
         };
 
     }
-
+    //--------------------------------------------------
+    // Wait for Contract Settlement
     //--------------------------------------------------
 
     async waitForContract(
         contractId: number
     ): Promise<ContractResult> {
 
-        const response = await this.sendRequest({
-            proposal_open_contract: 1,
-            contract_id: contractId
+        return new Promise((resolve, reject) => {
+
+            const listener = (message: any) => {
+
+                const contract =
+                    message.proposal_open_contract;
+
+                if (!contract) {
+                    return;
+                }
+
+                if (!contract.is_sold) {
+                    return;
+                }
+
+                this.contractListeners.delete(contractId);
+
+                resolve({
+
+                    contract_id:
+                        Number(contract.contract_id),
+
+                    profit:
+                        Number(contract.profit ?? 0),
+
+                    buy_price:
+                        Number(contract.buy_price ?? 0),
+
+                    sell_price:
+                        Number(contract.sell_price ?? 0),
+
+                    won:
+                        Number(contract.profit ?? 0) > 0
+
+                });
+
+            };
+
+            this.contractListeners.set(
+                contractId,
+                listener
+            );
+
+            this.ws?.send(
+
+                JSON.stringify({
+
+                    proposal_open_contract: 1,
+
+                    contract_id: contractId,
+
+                    subscribe: 1
+
+                })
+
+            );
+
+            setTimeout(() => {
+
+                if (
+                    this.contractListeners.has(contractId)
+                ) {
+
+                    this.contractListeners.delete(contractId);
+
+                    reject(
+                        new Error(
+                            "Contract settlement timeout."
+                        )
+                    );
+
+                }
+
+            }, 60000);
+
         });
-
-        const contract = response.proposal_open_contract;
-
-        if (!contract) {
-            throw new Error("Failed to retrieve contract.");
-        }
-
-        return {
-            contract_id: Number(contract.contract_id),
-            profit: Number(contract.profit ?? 0),
-            buy_price: Number(contract.buy_price ?? 0),
-            sell_price: Number(contract.sell_price ?? 0),
-            won: Number(contract.profit ?? 0) > 0
-        };
 
     }
     //--------------------------------------------------
-    // Message Handling
+    // Message Routing
     //--------------------------------------------------
 
     private handleMessage(
@@ -471,9 +557,26 @@ export class DerivClient {
 
                 message: "Authorization successful",
 
-                authorize: message.authorize
+                accountId: this.accountId,
+
+                balance: this.balance
 
             });
+
+            return;
+
+        }
+
+        //--------------------------------------------------
+        // Balance updates
+        //--------------------------------------------------
+
+        if (message.msg_type === "balance") {
+
+            this.balance =
+                Number(
+                    message.balance?.balance ?? this.balance
+                );
 
             return;
 
@@ -490,9 +593,11 @@ export class DerivClient {
 
             this.tickCallback({
 
-                quote: Number(message.tick.quote),
+                quote:
+                    Number(message.tick.quote),
 
-                epoch: Number(message.tick.epoch)
+                epoch:
+                    Number(message.tick.epoch)
 
             });
 
@@ -501,7 +606,33 @@ export class DerivClient {
         }
 
         //--------------------------------------------------
-        // Resolve pending requests
+        // Contract updates
+        //--------------------------------------------------
+
+        if (
+            message.msg_type === "proposal_open_contract"
+        ) {
+
+            const contractId =
+                Number(
+                    message.proposal_open_contract.contract_id
+                );
+
+            const listener =
+                this.contractListeners.get(contractId);
+
+            if (listener) {
+
+                listener(message);
+
+            }
+
+            return;
+
+        }
+
+        //--------------------------------------------------
+        // Pending request routing
         //--------------------------------------------------
 
         if (typeof message.req_id === "number") {
@@ -509,28 +640,32 @@ export class DerivClient {
             const pending =
                 this.pendingRequests.get(message.req_id);
 
-            if (pending) {
+            if (!pending) {
 
-                clearTimeout(pending.timeout);
-
-                this.pendingRequests.delete(message.req_id);
-
-                if (message.error) {
-
-                    pending.reject(
-                        new Error(message.error.message)
-                    );
-
-                } else {
-
-                    pending.resolve(message);
-
-                }
+                return;
 
             }
 
-            return;
+            clearTimeout(pending.timeout);
+
+            this.pendingRequests.delete(message.req_id);
+
+            if (message.error) {
+
+                pending.reject(
+
+                    new Error(message.error.message)
+
+                );
+
+            } else {
+
+                pending.resolve(message);
+
+            }
 
         }
+
     }
+
 }
