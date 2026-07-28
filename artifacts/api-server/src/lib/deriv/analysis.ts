@@ -13,6 +13,10 @@ export class ConfidenceEngine {
 
     private confidence = 0;
 
+    private under8Confidence = 0;
+
+    private under9Confidence = 0;
+
     private lastSignal: TradeSignal = "NONE";
 
     constructor(config: Pick<EngineConfig, "analysisWindow">) {
@@ -63,6 +67,10 @@ export class ConfidenceEngine {
 
         const p9 = under9 / this.digits.length;
 
+        this.under8Confidence = p8;
+
+        this.under9Confidence = p9;
+
         if (p8 >= 0.80) {
 
             this.lastSignal = "UNDER8";
@@ -98,15 +106,9 @@ export class ConfidenceEngine {
 
         return {
 
-            under8Confidence:
-                this.lastSignal === "UNDER8"
-                    ? this.confidence
-                    : null,
+            under8Confidence: this.under8Confidence,
 
-            under9Confidence:
-                this.lastSignal === "UNDER9"
-                    ? this.confidence
-                    : null,
+            under9Confidence: this.under9Confidence,
 
             tradeQuality:
                 this.confidence,
@@ -131,8 +133,11 @@ export class ConfidenceEngine {
 
         this.confidence = 0;
 
-        this.lastSignal = "NONE";
+        this.under8Confidence = 0;
 
+        this.under9Confidence = 0;
+
+        this.lastSignal = "NONE";
     }
 
 }

@@ -471,9 +471,7 @@ export class DerivClient {
 
                 message: "Authorization successful",
 
-                accountId: this.accountId,
-
-                balance: this.balance
+                authorize: message.authorize
 
             });
 
