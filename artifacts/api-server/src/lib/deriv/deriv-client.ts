@@ -586,20 +586,27 @@ export class DerivClient {
         // Tick Stream
         //--------------------------------------------------
 
-        if (
-            message.msg_type === "tick" &&
-            this.tickCallback
-        ) {
+        if (message.msg_type === "tick") {
 
-            this.tickCallback({
+            if (!message.tick) {
+                logger.warn({
+                    message: "Tick message received without tick payload",
+                    payload: message
+                });
+                return;
+            }
 
-                quote:
-                    Number(message.tick.quote),
+            if (this.tickCallback) {
 
-                epoch:
-                    Number(message.tick.epoch)
+                this.tickCallback({
 
-            });
+                    quote: Number(message.tick.quote),
+
+                    epoch: Number(message.tick.epoch)
+
+                });
+
+            }
 
             return;
 
