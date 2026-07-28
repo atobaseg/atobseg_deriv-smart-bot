@@ -237,7 +237,7 @@ export class DerivEngine {
 
             });
 
-            await this.client.subscribeTicks(
+            this.client.subscribeTicks(
 
                 market.symbol,
 
@@ -248,7 +248,6 @@ export class DerivEngine {
                 }
 
             );
-
             this.state = "running";
 
             logger.info({

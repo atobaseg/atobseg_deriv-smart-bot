@@ -343,23 +343,33 @@ export class DerivClient {
     // Tick Subscription
     //--------------------------------------------------
 
-    async subscribeTicks(
+    subscribeTicks(
 
         symbol: string,
 
         callback: (tick: Tick) => void
 
-    ): Promise<void> {
+    ): void {
+
+        if (!this.ws) {
+
+            throw new Error("Not connected.");
+
+        }
 
         this.tickCallback = callback;
 
-        await this.sendRequest({
+        this.ws.send(
 
-            ticks: symbol,
+            JSON.stringify({
 
-            subscribe: 1
+                ticks: symbol,
 
-        });
+                subscribe: 1
+
+            })
+
+        );
 
     }
 
