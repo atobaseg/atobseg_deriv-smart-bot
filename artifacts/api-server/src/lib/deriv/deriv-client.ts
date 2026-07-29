@@ -257,15 +257,38 @@ export class DerivClient {
     async connect(): Promise<void> {
 
         if (this.connected) {
-
             return;
-
         }
 
         const url =
             await this.createOtpConnection();
 
         this.ws = new WebSocket(url);
+
+        //--------------------------------------------------
+        // Register handlers FIRST
+        //--------------------------------------------------
+
+        this.ws.on(
+            "message",
+            data => this.handleMessage(data.toString())
+        );
+
+        this.ws.on("close", () => {
+
+            this.connected = false;
+
+            logger.warn({
+
+                message: "Disconnected from Deriv"
+
+            });
+
+        });
+
+        //--------------------------------------------------
+        // Wait for socket
+        //--------------------------------------------------
 
         await new Promise<void>((resolve, reject) => {
 
@@ -278,26 +301,6 @@ export class DerivClient {
             });
 
             this.ws!.once("error", reject);
-
-        });
-
-        this.ws.on(
-
-            "message",
-
-            data => this.handleMessage(data.toString())
-
-        );
-
-        this.ws.on("close", () => {
-
-            this.connected = false;
-
-            logger.warn({
-
-                message: "Disconnected from Deriv"
-
-            });
 
         });
 
@@ -334,6 +337,12 @@ export class DerivClient {
         await this.sendRequest({
 
             authorize: token
+
+        });
+
+        logger.info({
+
+            message: "Authorization request completed"
 
         });
 

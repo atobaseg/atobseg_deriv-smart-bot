@@ -220,6 +220,10 @@ export class DerivEngine {
 
             await this.client.connect();
 
+            await this.client.authorize(
+                this.config.accountType
+            );
+
             this.accountId =
                 this.client.getAccountId();
 
