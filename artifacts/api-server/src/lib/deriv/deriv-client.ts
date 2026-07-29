@@ -573,24 +573,17 @@ export class DerivClient {
                 message.authorize?.loginid ?? null;
 
             this.balance =
-                Number(
-                    message.authorize?.balance ?? 0
-                );
+                Number(message.authorize?.balance ?? 0);
 
             logger.info({
-
                 message: "Authorization successful",
-
                 accountId: this.accountId,
-
                 balance: this.balance
-
             });
 
-            return;
+            // DO NOT return here
 
         }
-
         //--------------------------------------------------
         // Balance updates
         //--------------------------------------------------
@@ -601,8 +594,6 @@ export class DerivClient {
                 Number(
                     message.balance?.balance ?? this.balance
                 );
-
-            return;
 
         }
 
