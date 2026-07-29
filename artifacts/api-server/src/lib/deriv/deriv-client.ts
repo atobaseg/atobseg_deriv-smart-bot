@@ -564,6 +564,11 @@ export class DerivClient {
 
         if (message.msg_type === "authorize") {
 
+            logger.info({
+                message: "Authorize payload",
+                payload: message
+            });
+
             this.accountId =
                 message.authorize?.loginid ?? null;
 
