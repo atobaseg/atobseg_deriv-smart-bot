@@ -334,6 +334,13 @@ export class DerivClient {
 
         }
 
+        logger.info({
+            accountType,
+            demoPrefix: process.env.DERIV_DEMO_TOKEN?.substring(0, 10),
+            realPrefix: process.env.DERIV_REAL_TOKEN?.substring(0, 10),
+            selectedPrefix: token.substring(0, 10),
+        });
+
         await this.sendRequest({
 
             authorize: token
