@@ -342,6 +342,16 @@ export class DerivClient {
 
         logger.info({
 
+            message: "Authorizing account",
+
+            accountType,
+
+            tokenPrefix: token.substring(0, 10)
+
+        });
+
+        logger.info({
+
             message: "Authorization request completed"
 
         });
