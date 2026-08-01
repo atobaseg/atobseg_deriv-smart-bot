@@ -22,6 +22,7 @@ export default function Dashboard() {
   // CIRCUIT BREAKER: Memoize the status to ensure it is ALWAYS a valid object
   const safeStatus = useMemo(() => {
     if (!rawStatus) return null;
+    console.log(safeStatus);
 
     return {
       ...rawStatus,
