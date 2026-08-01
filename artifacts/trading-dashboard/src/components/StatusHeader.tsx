@@ -14,6 +14,10 @@ export function StatusHeader({ status }: { status?: EngineStatus }) {
 
   const accountId = status.connection.accountId ?? "";
 
+  const balance = status.connection.balance ?? 0;
+
+  const currency = status.config.currency ?? "USD";
+
   const sessionPnl = status.session.sessionPnl ?? 0;
   const wins = status.session.wins ?? 0;
   const losses = status.session.losses ?? 0;
@@ -92,7 +96,7 @@ export function StatusHeader({ status }: { status?: EngineStatus }) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-4 border-t border-border/50">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mt-6 pt-4 border-t border-border/50">
             <div className="flex flex-col gap-1">
               <span className="text-xs text-muted-foreground uppercase tracking-wider">
                 Win / Loss
@@ -122,6 +126,16 @@ export function StatusHeader({ status }: { status?: EngineStatus }) {
                 ) : (
                   <span className="text-muted-foreground">-</span>
                 )}
+              </span>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <span className="text-xs text-muted-foreground uppercase tracking-wider">
+                Balance
+              </span>
+
+              <span className="font-mono font-medium">
+                {currency} {formatMoney(balance)}
               </span>
             </div>
 
