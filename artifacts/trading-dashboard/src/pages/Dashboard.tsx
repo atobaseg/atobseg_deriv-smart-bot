@@ -22,7 +22,6 @@ export default function Dashboard() {
   // CIRCUIT BREAKER: Memoize the status to ensure it is ALWAYS a valid object
   const safeStatus = useMemo(() => {
     if (!rawStatus) return null;
-    console.log(safeStatus);
 
     return {
       ...rawStatus,
@@ -33,6 +32,7 @@ export default function Dashboard() {
       state: rawStatus.state
     };
   }, [rawStatus]);
+  console.log("safeStatus:", safeStatus);
 
   // Loading/Error UI
   if (isLoading) {
