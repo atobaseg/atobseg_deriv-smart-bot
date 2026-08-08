@@ -72,7 +72,7 @@ export const DEFAULT_ENGINE_CONFIG: EngineConfig = {
 
   under8Threshold: 0.80,
 
-  under9Threshold: 0.90,
+  under9Threshold: 0.95,
 
   minimumTradeQuality: 0.75,
 
