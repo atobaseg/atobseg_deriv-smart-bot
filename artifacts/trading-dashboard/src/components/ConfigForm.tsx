@@ -16,9 +16,16 @@ import { Loader2 } from "lucide-react"
 const configSchema = z.object({
   market: z.string().min(1, "Market is required"),
   accountType: z.enum(["demo", "real"]),
+
+  stakeMode: z.enum(["fixed", "percentage", "kelly"]),
   baseStake: z.coerce.number().min(0.35, "Minimum stake is 0.35"),
+  stakePercent: z.coerce.number().min(0.1).max(100),
+  kellyEnabled: z.boolean(),
+  kellyFraction: z.coerce.number().min(0.01).max(0.25),
+
   martingaleEnabled: z.boolean(),
   martingaleMultiplier: z.coerce.number().min(1, "Minimum multiplier is 1"),
+
   stopLoss: z.coerce.number().min(0, "Must be >= 0"),
   takeProfit: z.coerce.number().min(0, "Must be >= 0"),
   maxSuccessiveLosses: z.coerce.number().int().min(1, "Must be >= 1"),
@@ -43,7 +50,7 @@ export function ConfigForm({ config, state }: { config?: EngineConfig, state?: E
     maxSuccessiveLosses: 1,
     maxSuccessiveWins: 1
   };
-  
+
   const safeState = state ?? 'idle';
 
   const form = useForm<ConfigFormValues>({
@@ -59,6 +66,7 @@ export function ConfigForm({ config, state }: { config?: EngineConfig, state?: E
 
   const isRunning = safeState === 'running'
   const isMartingaleEnabled = form.watch("martingaleEnabled")
+  const stakeMode = form.watch("stakeMode")
 
   const onSubmit = (data: ConfigFormValues) => {
     updateConfig.mutate({ data }, {
@@ -98,9 +106,9 @@ export function ConfigForm({ config, state }: { config?: EngineConfig, state?: E
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Market</FormLabel>
-                    <Select 
-                      disabled={isRunning || loadingMarkets} 
-                      onValueChange={field.onChange} 
+                    <Select
+                      disabled={isRunning || loadingMarkets}
+                      onValueChange={field.onChange}
                       value={field.value}
                     >
                       <FormControl>
@@ -133,9 +141,9 @@ export function ConfigForm({ config, state }: { config?: EngineConfig, state?: E
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Account Type</FormLabel>
-                    <Select 
-                      disabled={isRunning} 
-                      onValueChange={field.onChange} 
+                    <Select
+                      disabled={isRunning}
+                      onValueChange={field.onChange}
                       value={field.value}
                     >
                       <FormControl>
@@ -168,7 +176,7 @@ export function ConfigForm({ config, state }: { config?: EngineConfig, state?: E
                   </FormItem>
                 )}
               />
-              
+
               <div className="space-y-4">
                 <FormField
                   control={form.control}

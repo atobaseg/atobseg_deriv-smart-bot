@@ -66,16 +66,13 @@ export const DEFAULT_ENGINE_CONFIG: EngineConfig = {
   // Analysis
   //==================================================
 
-  analysisWindow: 100,
+  analysisWindow: 200,
+  minimumSamples: 100,
 
-  minimumSamples: 50,
-
-  under8Threshold: 0.80,
-
+  under8Threshold: 0.85,
   under9Threshold: 0.95,
 
-  minimumTradeQuality: 0.75,
-
+  minimumTradeQuality: 0.85,
   //==================================================
   // Contract
   //==================================================
