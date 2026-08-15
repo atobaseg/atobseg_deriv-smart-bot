@@ -1,5 +1,8 @@
 import { ConfidenceEngine } from "./analysis";
-import { DerivClient } from "./deriv-client";
+import {
+    DerivClient,
+    type DerivCredentials,
+} from "./deriv-client";
 import { DEFAULT_ENGINE_CONFIG } from "./config";
 import { getMarket } from "./markets";
 import { RiskManager } from "./risk-manager";
@@ -69,7 +72,10 @@ export class DerivEngine {
     // Constructor
     //--------------------------------------------------
 
-    constructor(config: Partial<EngineConfig> = {}) {
+    constructor(
+        credentials: DerivCredentials,
+        config: Partial<EngineConfig> = {},
+    ) {
 
         this.config = {
 
@@ -94,13 +100,11 @@ export class DerivEngine {
             new SessionManager();
 
         this.client =
-            new DerivClient();
+            new DerivClient(credentials);
 
         this.tradeManager =
             new TradeManager(this.client);
-
     }
-
     //--------------------------------------------------
     // Configuration
     //--------------------------------------------------
@@ -218,11 +222,7 @@ export class DerivEngine {
 
             this.state = "starting";
 
-            await this.client.connect();
-
-            await this.client.authorize(
-                this.config.accountType
-            );
+            await this.client.connect(this.config.accountType);
 
             this.accountId =
                 this.client.getAccountId();
@@ -408,12 +408,58 @@ export class DerivEngine {
     private async executeSignal(
         signal: "UNDER8" | "UNDER9"
     ): Promise<void> {
+
         this.tradeInFlight = true;
 
         try {
 
+            // Always refresh the balance immediately before trading.
+            this.balance =
+                await this.client.getBalance();
+
+            if (this.balance === null) {
+                throw new EngineUserError(
+                    "Unable to determine account balance before trade.",
+                    503
+                );
+            }
+
+            // Keep the configured reserve untouched.
+            const availableBalance =
+                this.balance -
+                this.config.reserveBalance;
+
             const stake =
                 this.stakeManager.getNextStake();
+
+            // Never place a trade that cannot be funded
+            // while preserving the configured reserve.
+            if (availableBalance < stake) {
+
+                this.stopReason =
+                    "Insufficient available balance for configured stake.";
+
+                logger.warn({
+
+                    message:
+                        "Trade blocked: insufficient balance",
+
+                    balance: this.balance,
+
+                    reserveBalance:
+                        this.config.reserveBalance,
+
+                    availableBalance,
+
+                    requestedStake:
+                        stake
+
+                });
+
+                await this.stop();
+
+                return;
+            }
 
             const trade =
                 await this.tradeManager.executeTrade(
@@ -476,9 +522,11 @@ export class DerivEngine {
 
                 logger.warn({
 
-                    message: "Risk manager requested stop",
+                    message:
+                        "Risk manager requested stop",
 
-                    reason: this.stopReason
+                    reason:
+                        this.stopReason
 
                 });
 
@@ -538,4 +586,3 @@ export class DerivEngine {
 
 }
 
-export const derivEngine = new DerivEngine();

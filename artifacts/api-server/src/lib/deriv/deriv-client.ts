@@ -3,40 +3,111 @@ import WebSocket from "ws";
 
 import { logger } from "../logger";
 
-export interface Tick {
-    quote: number;
-    epoch: number;
+
+//--------------------------------------------------
+// Deriv Credentials
+//--------------------------------------------------
+
+export interface DerivCredentials {
+
+    appId: string;
+
+    demoToken?: string;
+
+    realToken?: string;
+
 }
+
+
+//--------------------------------------------------
+// Tick
+//--------------------------------------------------
+
+export interface Tick {
+
+    quote: number;
+
+    epoch: number;
+
+}
+
+
+//--------------------------------------------------
+// Proposal
+//--------------------------------------------------
 
 export interface ProposalRequest {
+
     symbol: string;
+
     amount: number;
+
     basis: string;
+
     contract_type: string;
+
     currency: string;
+
     duration: number;
+
     duration_unit: string;
+
     barrier?: string;
+
 }
+
 
 export interface ProposalResponse {
+
     id: string;
+
     ask_price: number;
+
 }
+
+
+//--------------------------------------------------
+// Buy
+//--------------------------------------------------
 
 export interface BuyResponse {
+
     contract_id: number;
+
 }
+
+
+//--------------------------------------------------
+// Contract Result
+//--------------------------------------------------
 
 export interface ContractResult {
+
     contract_id: number;
+
     profit: number;
+
     buy_price: number;
+
     sell_price: number;
+
     won: boolean;
+
 }
 
+
+//==================================================
+// Deriv Client
+//==================================================
+
 export class DerivClient {
+
+    //--------------------------------------------------
+    // User Credentials
+    //--------------------------------------------------
+
+    private readonly credentials: DerivCredentials;
+
 
     //--------------------------------------------------
     // Connection
@@ -50,7 +121,10 @@ export class DerivClient {
 
     private balance = 0;
 
-    private tickCallback?: (tick: Tick) => void;
+    private tickCallback?: (
+        tick: Tick
+    ) => void;
+
 
     //--------------------------------------------------
     // Request Routing
@@ -67,14 +141,51 @@ export class DerivClient {
         }
     >();
 
+
     //--------------------------------------------------
-    // Contract subscriptions
+    // Contract Subscriptions
     //--------------------------------------------------
 
     private contractListeners = new Map<
         number,
         (message: any) => void
     >();
+
+
+    //--------------------------------------------------
+    // Constructor
+    //--------------------------------------------------
+
+    constructor(
+        credentials: DerivCredentials
+    ) {
+
+        if (!credentials.appId) {
+
+            throw new Error(
+                "Deriv App ID is required."
+            );
+
+        }
+
+        if (
+            !credentials.demoToken &&
+            !credentials.realToken
+        ) {
+
+            throw new Error(
+                "At least one Deriv account token is required."
+            );
+
+        }
+
+        this.credentials = {
+            ...credentials
+        };
+
+    }
+
+
     //--------------------------------------------------
     // Helpers
     //--------------------------------------------------
@@ -85,53 +196,74 @@ export class DerivClient {
 
     }
 
-    private sendRequest(payload: any): Promise<any> {
+
+    //--------------------------------------------------
+
+    private sendRequest(
+        payload: any
+    ): Promise<any> {
 
         if (!this.ws) {
 
-            throw new Error("Not connected.");
+            throw new Error(
+                "Not connected."
+            );
 
         }
 
-        const reqId = this.nextReqId();
+        const reqId =
+            this.nextReqId();
 
-        return new Promise((resolve, reject) => {
 
-            const timeout = setTimeout(() => {
+        return new Promise(
+            (resolve, reject) => {
 
-                this.pendingRequests.delete(reqId);
+                const timeout =
+                    setTimeout(
+                        () => {
 
-                reject(
-                    new Error("Deriv request timed out.")
+                            this.pendingRequests.delete(
+                                reqId
+                            );
+
+                            reject(
+                                new Error(
+                                    "Deriv request timed out."
+                                )
+                            );
+
+                        },
+                        15000
+                    );
+
+
+                this.pendingRequests.set(
+                    reqId,
+                    {
+                        resolve,
+                        reject,
+                        timeout
+                    }
                 );
 
-            }, 15000);
 
-            this.pendingRequests.set(reqId, {
+                this.ws!.send(
 
-                resolve,
+                    JSON.stringify({
 
-                reject,
+                        ...payload,
 
-                timeout
+                        req_id: reqId
 
-            });
+                    })
 
-            this.ws!.send(
+                );
 
-                JSON.stringify({
-
-                    ...payload,
-
-                    req_id: reqId
-
-                })
-
-            );
-
-        });
+            }
+        );
 
     }
+
 
     //--------------------------------------------------
     // Status
@@ -143,11 +275,17 @@ export class DerivClient {
 
     }
 
+
+    //--------------------------------------------------
+
     getAccountId(): string | null {
 
         return this.accountId;
 
     }
+
+
+    //--------------------------------------------------
 
     async getBalance(): Promise<number> {
 
@@ -155,156 +293,246 @@ export class DerivClient {
 
     }
 
+
+    //--------------------------------------------------
+    // Token Selection
+    //--------------------------------------------------
+
+    private getTokenForAccountType(
+        accountType: "demo" | "real"
+    ): string {
+
+        const token =
+            accountType === "demo"
+                ? this.credentials.demoToken
+                : this.credentials.realToken;
+
+
+        if (!token) {
+
+            throw new Error(
+
+                accountType === "demo"
+
+                    ? "Demo Deriv token is not configured for this user."
+
+                    : "Real Deriv token is not configured for this user."
+
+            );
+
+        }
+
+
+        return token;
+
+    }
+
+
     //--------------------------------------------------
     // Options API
     //--------------------------------------------------
 
-    private async getOptionsAccountId(): Promise<string> {
-
-        const appId = process.env.DERIV_APP_ID;
-
-        if (!appId) {
-
-            throw new Error("DERIV_APP_ID missing.");
-
-        }
+    private async getOptionsAccountId(
+        accountType: "demo" | "real"
+    ): Promise<string> {
 
         const token =
-            process.env.DERIV_DEMO_TOKEN ??
-            process.env.DERIV_REAL_TOKEN;
+            this.getTokenForAccountType(
+                accountType
+            );
 
-        if (!token) {
 
-            throw new Error("No Deriv PAT configured.");
+        const response =
+            await axios.get(
 
-        }
+                "https://api.derivws.com/trading/v1/options/accounts",
 
-        const response = await axios.get(
+                {
 
-            "https://api.derivws.com/trading/v1/options/accounts",
+                    headers: {
 
-            {
+                        Authorization:
+                            `Bearer ${token}`,
 
-                headers: {
+                        "Deriv-App-ID":
+                            this.credentials.appId
 
-                    Authorization: `Bearer ${token}`,
-
-                    "Deriv-App-ID": appId
+                    }
 
                 }
 
-            }
+            );
 
-        );
 
-        const accounts = response.data.data;
+        const accounts =
+            response.data.data;
+
 
         if (!accounts?.length) {
 
-            throw new Error("No Options account found.");
+            throw new Error(
+                "No Options account found."
+            );
 
         }
+
 
         return accounts[0].account_id;
 
     }
 
-    private async createOtpConnection(): Promise<string> {
 
-        const appId = process.env.DERIV_APP_ID;
+    //--------------------------------------------------
+    // OTP Connection
+    //--------------------------------------------------
+
+    private async createOtpConnection(
+        accountType: "demo" | "real"
+    ): Promise<string> {
 
         const token =
-            process.env.DERIV_DEMO_TOKEN ??
-            process.env.DERIV_REAL_TOKEN;
+            this.getTokenForAccountType(
+                accountType
+            );
 
-        if (!appId || !token) {
-
-            throw new Error("Missing Deriv credentials.");
-
-        }
 
         const accountId =
-            await this.getOptionsAccountId();
+            await this.getOptionsAccountId(
+                accountType
+            );
 
-        const response = await axios.post(
 
-            `https://api.derivws.com/trading/v1/options/accounts/${accountId}/otp`,
+        this.accountId =
+            accountId;
 
-            {},
 
-            {
+        const response =
+            await axios.post(
 
-                headers: {
+                `https://api.derivws.com/trading/v1/options/accounts/${accountId}/otp`,
 
-                    Authorization: `Bearer ${token}`,
+                {},
 
-                    "Deriv-App-ID": appId
+                {
+
+                    headers: {
+
+                        Authorization:
+                            `Bearer ${token}`,
+
+                        "Deriv-App-ID":
+                            this.credentials.appId
+
+                    }
 
                 }
 
-            }
+            );
 
-        );
 
         return response.data.data.url;
 
     }
 
+
     //--------------------------------------------------
     // Connection
     //--------------------------------------------------
 
-    async connect(): Promise<void> {
+    async connect(
+        accountType: "demo" | "real"
+    ): Promise<void> {
 
         if (this.connected) {
+
             return;
+
         }
 
-        const url =
-            await this.createOtpConnection();
 
-        this.ws = new WebSocket(url);
+        const url =
+            await this.createOtpConnection(
+                accountType
+            );
+
+
+        this.ws =
+            new WebSocket(url);
+
 
         //--------------------------------------------------
         // Register handlers FIRST
         //--------------------------------------------------
 
         this.ws.on(
+
             "message",
-            data => this.handleMessage(data.toString())
+
+            data =>
+                this.handleMessage(
+                    data.toString()
+                )
+
         );
 
-        this.ws.on("close", () => {
 
-            this.connected = false;
+        this.ws.on(
 
-            logger.warn({
+            "close",
 
-                message: "Disconnected from Deriv"
+            () => {
 
-            });
+                this.connected = false;
 
-        });
+                logger.warn({
+
+                    message:
+                        "Disconnected from Deriv"
+
+                });
+
+            }
+
+        );
+
 
         //--------------------------------------------------
         // Wait for socket
         //--------------------------------------------------
 
-        await new Promise<void>((resolve, reject) => {
+        await new Promise<void>(
+            (resolve, reject) => {
 
-            this.ws!.once("open", () => {
+                this.ws!.once(
 
-                this.connected = true;
+                    "open",
 
-                resolve();
+                    () => {
 
-            });
+                        this.connected =
+                            true;
 
-            this.ws!.once("error", reject);
+                        resolve();
 
-        });
+                    }
+
+                );
+
+
+                this.ws!.once(
+                    "error",
+                    reject
+                );
+
+            }
+        );
 
     }
+
+
+    //--------------------------------------------------
+    // Disconnect
+    //--------------------------------------------------
 
     async disconnect(): Promise<void> {
 
@@ -314,56 +542,42 @@ export class DerivClient {
 
         this.connected = false;
 
-    }
-    //--------------------------------------------------
-    // Authorization
-    //--------------------------------------------------
+        this.accountId = null;
 
-    async authorize(
-        accountType: "demo" | "real"
-    ): Promise<void> {
+        this.balance = 0;
 
-        const token =
-            accountType === "demo"
-                ? process.env.DERIV_DEMO_TOKEN
-                : process.env.DERIV_REAL_TOKEN;
+        this.tickCallback =
+            undefined;
 
-        if (!token) {
 
-            throw new Error("Missing Deriv token.");
+        this.contractListeners.clear();
+
+
+        for (
+            const pending
+            of this.pendingRequests.values()
+        ) {
+
+            clearTimeout(
+                pending.timeout
+            );
+
+
+            pending.reject(
+
+                new Error(
+                    "Deriv connection closed."
+                )
+
+            );
 
         }
 
-        logger.info({
-            accountType,
-            demoPrefix: process.env.DERIV_DEMO_TOKEN?.substring(0, 10),
-            realPrefix: process.env.DERIV_REAL_TOKEN?.substring(0, 10),
-            selectedPrefix: token.substring(0, 10),
-        });
 
-        await this.sendRequest({
-
-            authorize: token
-
-        });
-
-        logger.info({
-
-            message: "Authorizing account",
-
-            accountType,
-
-            tokenPrefix: token.substring(0, 10)
-
-        });
-
-        logger.info({
-
-            message: "Authorization request completed"
-
-        });
+        this.pendingRequests.clear();
 
     }
+
 
     //--------------------------------------------------
     // Tick Subscription
@@ -373,17 +587,24 @@ export class DerivClient {
 
         symbol: string,
 
-        callback: (tick: Tick) => void
+        callback: (
+            tick: Tick
+        ) => void
 
     ): void {
 
         if (!this.ws) {
 
-            throw new Error("Not connected.");
+            throw new Error(
+                "Not connected."
+            );
 
         }
 
-        this.tickCallback = callback;
+
+        this.tickCallback =
+            callback;
+
 
         this.ws.send(
 
@@ -399,6 +620,7 @@ export class DerivClient {
 
     }
 
+
     //--------------------------------------------------
     // Proposal
     //--------------------------------------------------
@@ -407,38 +629,52 @@ export class DerivClient {
         request: ProposalRequest
     ): Promise<ProposalResponse> {
 
-        const response = await this.sendRequest({
+        const response =
+            await this.sendRequest({
 
-            proposal: 1,
+                proposal: 1,
 
-            amount: request.amount,
+                amount:
+                    request.amount,
 
-            basis: request.basis,
+                basis:
+                    request.basis,
 
-            contract_type: request.contract_type,
+                contract_type:
+                    request.contract_type,
 
-            currency: request.currency,
+                currency:
+                    request.currency,
 
-            duration: request.duration,
+                duration:
+                    request.duration,
 
-            duration_unit: request.duration_unit,
+                duration_unit:
+                    request.duration_unit,
 
-            underlying_symbol: request.symbol,
+                underlying_symbol:
+                    request.symbol,
 
-            barrier: request.barrier
+                barrier:
+                    request.barrier
 
-        });
+            });
+
 
         return {
 
-            id: response.proposal.id,
+            id:
+                response.proposal.id,
 
             ask_price:
-                Number(response.proposal.ask_price)
+                Number(
+                    response.proposal.ask_price
+                )
 
         };
 
     }
+
 
     //--------------------------------------------------
     // Buy
@@ -455,20 +691,26 @@ export class DerivClient {
         const response =
             await this.sendRequest({
 
-                buy: proposalId,
+                buy:
+                    proposalId,
 
                 price
 
             });
 
+
         return {
 
             contract_id:
-                Number(response.buy.contract_id)
+                Number(
+                    response.buy.contract_id
+                )
 
         };
 
     }
+
+
     //--------------------------------------------------
     // Wait for Contract Settlement
     //--------------------------------------------------
@@ -477,84 +719,126 @@ export class DerivClient {
         contractId: number
     ): Promise<ContractResult> {
 
-        return new Promise((resolve, reject) => {
+        return new Promise(
+            (resolve, reject) => {
 
-            const listener = (message: any) => {
+                const listener =
+                    (message: any) => {
 
-                const contract =
-                    message.proposal_open_contract;
+                        const contract =
+                            message.proposal_open_contract;
 
-                if (!contract) {
-                    return;
-                }
 
-                if (!contract.is_sold) {
-                    return;
-                }
+                        if (!contract) {
 
-                this.contractListeners.delete(contractId);
+                            return;
 
-                resolve({
+                        }
 
-                    contract_id:
-                        Number(contract.contract_id),
 
-                    profit:
-                        Number(contract.profit ?? 0),
+                        if (!contract.is_sold) {
 
-                    buy_price:
-                        Number(contract.buy_price ?? 0),
+                            return;
 
-                    sell_price:
-                        Number(contract.sell_price ?? 0),
+                        }
 
-                    won:
-                        Number(contract.profit ?? 0) > 0
 
-                });
+                        this.contractListeners.delete(
+                            contractId
+                        );
 
-            };
 
-            this.contractListeners.set(
-                contractId,
-                listener
-            );
+                        resolve({
 
-            this.ws?.send(
+                            contract_id:
+                                Number(
+                                    contract.contract_id
+                                ),
 
-                JSON.stringify({
+                            profit:
+                                Number(
+                                    contract.profit ?? 0
+                                ),
 
-                    proposal_open_contract: 1,
+                            buy_price:
+                                Number(
+                                    contract.buy_price ?? 0
+                                ),
 
-                    contract_id: contractId,
+                            sell_price:
+                                Number(
+                                    contract.sell_price ?? 0
+                                ),
 
-                    subscribe: 1
+                            won:
+                                Number(
+                                    contract.profit ?? 0
+                                ) > 0
 
-                })
+                        });
 
-            );
+                    };
 
-            setTimeout(() => {
 
-                if (
-                    this.contractListeners.has(contractId)
-                ) {
+                this.contractListeners.set(
 
-                    this.contractListeners.delete(contractId);
+                    contractId,
 
-                    reject(
-                        new Error(
-                            "Contract settlement timeout."
-                        )
-                    );
+                    listener
 
-                }
+                );
 
-            }, 60000);
 
-        });
+                this.ws?.send(
+
+                    JSON.stringify({
+
+                        proposal_open_contract: 1,
+
+                        contract_id:
+                            contractId,
+
+                        subscribe: 1
+
+                    })
+
+                );
+
+
+                setTimeout(
+                    () => {
+
+                        if (
+                            this.contractListeners.has(
+                                contractId
+                            )
+                        ) {
+
+                            this.contractListeners.delete(
+                                contractId
+                            );
+
+
+                            reject(
+
+                                new Error(
+                                    "Contract settlement timeout."
+                                )
+
+                            );
+
+                        }
+
+                    },
+                    60000
+                );
+
+            }
+        );
 
     }
+
+
     //--------------------------------------------------
     // Message Routing
     //--------------------------------------------------
@@ -565,9 +849,11 @@ export class DerivClient {
 
         let message: any;
 
+
         try {
 
-            message = JSON.parse(raw);
+            message =
+                JSON.parse(raw);
 
         } catch {
 
@@ -575,90 +861,148 @@ export class DerivClient {
 
         }
 
+
         //--------------------------------------------------
         // Authorization
         //--------------------------------------------------
 
-        if (message.msg_type === "authorize") {
+        if (
+            message.msg_type === "authorize"
+        ) {
 
             logger.info({
-                message: "Authorize payload",
-                payload: message
+
+                message:
+                    "Authorize payload",
+
+                payload:
+                    message
+
             });
+
 
             this.accountId =
-                message.authorize?.loginid ?? null;
+                message.authorize?.loginid
+                ?? this.accountId;
 
-            this.balance =
-                Number(message.authorize?.balance ?? 0);
-
-            logger.info({
-                message: "Authorization successful",
-                accountId: this.accountId,
-                balance: this.balance
-            });
-
-            // DO NOT return here
-
-        }
-        //--------------------------------------------------
-        // Balance updates
-        //--------------------------------------------------
-
-        if (message.msg_type === "balance") {
 
             this.balance =
                 Number(
-                    message.balance?.balance ?? this.balance
+
+                    message.authorize?.balance
+                    ?? this.balance
+
+                );
+
+
+            logger.info({
+
+                message:
+                    "Authorization successful",
+
+                accountId:
+                    this.accountId,
+
+                balance:
+                    this.balance
+
+            });
+
+        }
+
+
+        //--------------------------------------------------
+        // Balance Updates
+        //--------------------------------------------------
+
+        if (
+            message.msg_type === "balance"
+        ) {
+
+            this.balance =
+                Number(
+
+                    message.balance?.balance
+                    ?? this.balance
+
                 );
 
         }
+
 
         //--------------------------------------------------
         // Tick Stream
         //--------------------------------------------------
 
-        if (message.msg_type === "tick") {
+        if (
+            message.msg_type === "tick"
+        ) {
 
             if (!message.tick) {
+
                 logger.warn({
-                    message: "Tick message received without tick payload",
-                    payload: message
+
+                    message:
+                        "Tick message received without tick payload",
+
+                    payload:
+                        message
+
                 });
+
                 return;
+
             }
+
 
             if (this.tickCallback) {
 
                 this.tickCallback({
 
-                    quote: Number(message.tick.quote),
+                    quote:
+                        Number(
+                            message.tick.quote
+                        ),
 
-                    epoch: Number(message.tick.epoch)
+                    epoch:
+                        Number(
+                            message.tick.epoch
+                        )
 
                 });
 
             }
 
+
             return;
 
         }
 
+
         //--------------------------------------------------
-        // Contract updates
+        // Contract Updates
         //--------------------------------------------------
 
         if (
-            message.msg_type === "proposal_open_contract"
+            message.msg_type ===
+            "proposal_open_contract"
         ) {
 
             const contractId =
                 Number(
-                    message.proposal_open_contract.contract_id
+
+                    message
+                        .proposal_open_contract
+                        .contract_id
+
                 );
 
+
             const listener =
-                this.contractListeners.get(contractId);
+                this.contractListeners.get(
+                    contractId
+                );
+
 
             if (listener) {
 
@@ -666,18 +1010,26 @@ export class DerivClient {
 
             }
 
+
             return;
 
         }
 
+
         //--------------------------------------------------
-        // Pending request routing
+        // Pending Request Routing
         //--------------------------------------------------
 
-        if (typeof message.req_id === "number") {
+        if (
+            typeof message.req_id ===
+            "number"
+        ) {
 
             const pending =
-                this.pendingRequests.get(message.req_id);
+                this.pendingRequests.get(
+                    message.req_id
+                );
+
 
             if (!pending) {
 
@@ -685,21 +1037,32 @@ export class DerivClient {
 
             }
 
-            clearTimeout(pending.timeout);
 
-            this.pendingRequests.delete(message.req_id);
+            clearTimeout(
+                pending.timeout
+            );
+
+
+            this.pendingRequests.delete(
+                message.req_id
+            );
+
 
             if (message.error) {
 
                 pending.reject(
 
-                    new Error(message.error.message)
+                    new Error(
+                        message.error.message
+                    )
 
                 );
 
             } else {
 
-                pending.resolve(message);
+                pending.resolve(
+                    message
+                );
 
             }
 
