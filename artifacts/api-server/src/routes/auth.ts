@@ -14,6 +14,11 @@ import {
     deleteSession,
 } from "../lib/auth/sessions";
 
+import {
+    requireAuth,
+    type AuthenticatedRequest,
+} from "../lib/auth/require-auth";
+
 const router: IRouter = Router();
 
 const SESSION_COOKIE_NAME = "deriv_session";
@@ -24,6 +29,7 @@ const SESSION_COOKIE_MAX_AGE =
     60 *
     24 *
     30;
+
 
 //--------------------------------------------------
 // Register
@@ -400,6 +406,26 @@ router.get(
                     "Unable to verify authentication.",
             });
         }
+    },
+);
+
+
+//--------------------------------------------------
+// Protected Authentication Test
+//--------------------------------------------------
+
+router.get(
+    "/auth/protected-test",
+    requireAuth,
+    async (req, res) => {
+
+        const authenticatedReq =
+            req as AuthenticatedRequest;
+
+        res.status(200).json({
+            success: true,
+            user: authenticatedReq.user,
+        });
     },
 );
 
