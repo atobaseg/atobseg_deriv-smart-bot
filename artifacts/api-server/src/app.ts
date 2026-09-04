@@ -6,8 +6,6 @@ import cookieParser from "cookie-parser";
 
 import router from "./routes";
 
-import derivOAuthRouter from "./routes/deriv-oauth";
-
 const app: Express = express();
 
 // --------------------------------------------------
@@ -29,7 +27,5 @@ app.use(cookieParser());
 // --------------------------------------------------
 
 app.use("/api", router);
-
-app.use("/api", derivOAuthRouter);
 
 export default app;
