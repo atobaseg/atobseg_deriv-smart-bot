@@ -14,7 +14,12 @@ const app: Express = express();
 
 // --------------------------------------------------
 
-app.use(cors());
+app.use(
+    cors({
+        origin: "https://atobseg-deriv-smart-bot-1.onrender.com",
+        credentials: true,
+    }),
+);
 
 app.use(express.json());
 
